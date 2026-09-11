@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import { createTask, fetchTasks, type TaskResponse } from './api'
+import { createTask, fetchTasks, setTaskDone, type TaskResponse } from './api'
 import './App.css'
 
 type ListState =
@@ -12,6 +12,9 @@ function App() {
   const [title, setTitle] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
+  // Отметки переключаются независимо друг от друга, поэтому ждущих запросов может быть несколько.
+  const [pending, setPending] = useState<ReadonlySet<string>>(new Set())
+  const [toggleError, setToggleError] = useState<string | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -54,6 +57,31 @@ function App() {
     }
   }
 
+  async function handleToggle(task: TaskResponse) {
+    if (pending.has(task.id)) return
+
+    setPending((current) => new Set(current).add(task.id))
+    setToggleError(null)
+
+    try {
+      const updated = await setTaskDone(task.id, !task.isDone)
+
+      setList((current) =>
+        current.status === 'ready'
+          ? { status: 'ready', tasks: current.tasks.map((t) => (t.id === updated.id ? updated : t)) }
+          : current,
+      )
+    } catch (error: unknown) {
+      setToggleError(error instanceof Error ? error.message : String(error))
+    } finally {
+      setPending((current) => {
+        const next = new Set(current)
+        next.delete(task.id)
+        return next
+      })
+    }
+  }
+
   return (
     <main className="app">
       <h1>Список дел</h1>
@@ -74,6 +102,8 @@ function App() {
 
       {submitError && <p className="error">{submitError}</p>}
 
+      {toggleError && <p className="error">{toggleError}</p>}
+
       {list.status === 'loading' && <p className="hint">Загрузка…</p>}
 
       {list.status === 'error' && <p className="error">{list.message}</p>}
@@ -84,8 +114,17 @@ function App() {
         <ul className="tasks">
           {list.tasks.map((task) => (
             <li key={task.id} className={task.isDone ? 'task done' : 'task'}>
-              <span className="marker">{task.isDone ? '✓' : '○'}</span>
-              <span className="title">{task.title}</span>
+              {/* Заголовок внутри label: он же служит доступным именем для отметки. */}
+              <label className="task-label">
+                <input
+                  type="checkbox"
+                  className="marker"
+                  checked={task.isDone}
+                  disabled={pending.has(task.id)}
+                  onChange={() => handleToggle(task)}
+                />
+                <span className="title">{task.title}</span>
+              </label>
             </li>
           ))}
         </ul>

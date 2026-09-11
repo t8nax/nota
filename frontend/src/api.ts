@@ -47,3 +47,17 @@ export async function createTask(title: string): Promise<TaskResponse> {
 
   return response.json()
 }
+
+export async function setTaskDone(id: string, isDone: boolean): Promise<TaskResponse> {
+  const response = await fetch(`/api/tasks/${id}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ isDone }),
+  })
+
+  if (!response.ok) {
+    throw new Error(await describeFailure(response, 'Не удалось изменить отметку'))
+  }
+
+  return response.json()
+}

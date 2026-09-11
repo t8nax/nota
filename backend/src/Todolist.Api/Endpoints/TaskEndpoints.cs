@@ -60,5 +60,29 @@ public static class TaskEndpoints
             return Results.Created(string.Empty, response);
         })
         .WithName("CreateTask");
+
+        group.MapPatch("/{id:guid}", async (Guid id, UpdateTaskDoneRequest request, TodolistDbContext db, CancellationToken ct) =>
+        {
+            if (request.IsDone is not bool isDone)
+            {
+                return Results.ValidationProblem(new Dictionary<string, string[]>
+                {
+                    ["isDone"] = ["Нужно передать значение отметки."]
+                });
+            }
+
+            var task = await db.Tasks.FirstOrDefaultAsync(t => t.Id == id, ct);
+
+            if (task is null)
+            {
+                return Results.NotFound();
+            }
+
+            task.IsDone = isDone;
+            await db.SaveChangesAsync(ct);
+
+            return Results.Ok(new TaskResponse(task.Id, task.Title, task.IsDone, task.CreatedAt));
+        })
+        .WithName("UpdateTaskDone");
     }
 }
