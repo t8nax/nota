@@ -52,6 +52,14 @@ public class TodolistApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
         await db.Tasks.ExecuteDeleteAsync();
     }
 
+    /// <summary>Читает задачи прямо из базы, минуя API.</summary>
+    public async Task<List<TodoTask>> GetTasksAsync()
+    {
+        using var scope = Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<TodolistDbContext>();
+        return await db.Tasks.AsNoTracking().ToListAsync();
+    }
+
     public async Task SeedAsync(params TodoTask[] tasks)
     {
         using var scope = Services.CreateScope();

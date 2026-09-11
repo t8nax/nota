@@ -5,7 +5,8 @@ using Todolist.Api.Domain;
 
 namespace Todolist.Api.Tests;
 
-public class GetTasksTests(TodolistApiFactory factory) : IClassFixture<TodolistApiFactory>
+[Collection(nameof(ApiCollection))]
+public class GetTasksTests(TodolistApiFactory factory)
 {
     [Fact]
     public async Task Returns_empty_list_when_no_tasks()

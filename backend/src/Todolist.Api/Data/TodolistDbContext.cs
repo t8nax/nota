@@ -13,7 +13,7 @@ public class TodolistDbContext(DbContextOptions<TodolistDbContext> options) : Db
         {
             task.ToTable("tasks");
             task.HasKey(t => t.Id);
-            task.Property(t => t.Title).HasMaxLength(500).IsRequired();
+            task.Property(t => t.Title).HasMaxLength(TodoTask.TitleMaxLength).IsRequired();
             task.Property(t => t.CreatedAt).IsRequired();
         });
     }
