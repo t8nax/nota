@@ -1,3 +1,9 @@
 namespace Todolist.Api.Contracts;
 
-public record TaskResponse(Guid Id, string Title, bool IsDone, DateTimeOffset CreatedAt);
+public record TaskResponse(
+    Guid Id,
+    string Title,
+    bool IsDone,
+    DateTimeOffset CreatedAt,
+    DateOnly? DueDate,
+    TimeOnly? DueTime);

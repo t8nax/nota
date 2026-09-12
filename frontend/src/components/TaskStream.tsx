@@ -1,5 +1,5 @@
 import type { TaskResponse } from '../api'
-import { groupByDay } from '../grouping'
+import { groupByDue } from '../grouping'
 import TaskCard from './TaskCard'
 
 interface TaskStreamProps {
@@ -8,15 +8,21 @@ interface TaskStreamProps {
   onToggle: (task: TaskResponse) => void
 }
 
-/** Лента задач: день — разделитель, под ним карточки этого дня. */
+/** Лента задач: срок — разделитель, под ним карточки этого срока. */
 function TaskStream({ tasks, pending, onToggle }: TaskStreamProps) {
   return (
     <>
-      {groupByDay(tasks).map((group) => (
+      {groupByDue(tasks).map((group) => (
         <section key={group.key}>
-          <h2 className="date-divider">{group.title}</h2>
+          <h2 className={group.overdue ? 'date-divider overdue' : 'date-divider'}>{group.title}</h2>
           {group.tasks.map((task) => (
-            <TaskCard key={task.id} task={task} pending={pending.has(task.id)} onToggle={onToggle} />
+            <TaskCard
+              key={task.id}
+              task={task}
+              overdue={group.overdue}
+              pending={pending.has(task.id)}
+              onToggle={onToggle}
+            />
           ))}
         </section>
       ))}

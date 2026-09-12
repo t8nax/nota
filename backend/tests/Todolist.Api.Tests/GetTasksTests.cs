@@ -46,4 +46,40 @@ public class GetTasksTests(TodolistApiFactory factory)
         Assert.Equal("Купить молоко", task.Title);
         Assert.False(task.IsDone);
     }
+
+    [Fact]
+    public async Task Orders_by_due_date_putting_undated_tasks_last()
+    {
+        await factory.ResetAsync();
+
+        var day = new DateOnly(2026, 9, 20);
+
+        // Порядок в базе нарочно обратный ожидаемому, чтобы проверялась сортировка,
+        // а не совпадение с порядком вставки.
+        await factory.SeedAsync(
+            Task_("Без срока"),
+            Task_("Позже в тот же день", day, new TimeOnly(18, 0)),
+            Task_("Раньше в тот же день", day, new TimeOnly(9, 0)),
+            Task_("Весь день", day),
+            Task_("Накануне", day.AddDays(-1)));
+
+        var client = factory.CreateClient();
+
+        var tasks = await client.GetFromJsonAsync<List<TaskResponse>>("/api/tasks");
+
+        Assert.NotNull(tasks);
+        Assert.Equal(
+            ["Накануне", "Весь день", "Раньше в тот же день", "Позже в тот же день", "Без срока"],
+            tasks.Select(t => t.Title));
+    }
+
+    private static TodoTask Task_(string title, DateOnly? dueDate = null, TimeOnly? dueTime = null) => new()
+    {
+        Id = Guid.NewGuid(),
+        Title = title,
+        IsDone = false,
+        CreatedAt = DateTimeOffset.UtcNow,
+        DueDate = dueDate,
+        DueTime = dueTime
+    };
 }

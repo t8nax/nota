@@ -123,6 +123,10 @@
   background: var(--divider);
 }
 
+.date-divider.overdue {
+  color: var(--tag-red);
+}
+
 /* Карточка задачи */
 
 .task-card {
@@ -165,8 +169,12 @@
   color: var(--tag-green);
 }
 
-.task-time {
+.task-due {
   color: var(--text-tertiary);
+}
+
+.task-due.overdue {
+  color: var(--tag-red);
 }
 
 .task-content {
@@ -227,10 +235,42 @@
 /* Форма новой задачи */
 
 .new-task {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.new-task-title-row {
   position: relative;
   display: flex;
   align-items: center;
   gap: 12px;
+}
+
+.new-task-due {
+  display: flex;
+  gap: 12px;
+  padding-left: 16px;
+}
+
+.due-field {
+  padding: 10px 16px;
+  background: var(--bg-input);
+  border: 1px solid transparent;
+  border-radius: var(--radius-pill);
+  font: inherit;
+  color: var(--text-main);
+  outline: none;
+  transition: border-color 0.2s;
+  color-scheme: dark;
+}
+
+.due-field:focus {
+  border-color: var(--accent-purple);
+}
+
+.due-field:disabled {
+  opacity: 0.4;
 }
 
 .new-task-icon {

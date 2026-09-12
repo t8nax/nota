@@ -3,13 +3,23 @@ import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import App from './App'
 
+/** Лента считает «сегодня» по часам машины, поэтому во всех тестах день фиксирован. */
+const TODAY = '2026-09-12'
+
 /** Ответ, каким его отдаёт настоящий API. */
-function taskJson(title: string, isDone = false) {
+function taskJson(
+  title: string,
+  isDone = false,
+  dueDate: string | null = null,
+  dueTime: string | null = null,
+) {
   return {
     id: crypto.randomUUID(),
     title,
     isDone,
     createdAt: new Date().toISOString(),
+    dueDate,
+    dueTime,
   }
 }
 
@@ -20,19 +30,24 @@ function jsonResponse(body: unknown, status = 200) {
   })
 }
 
+beforeEach(() => {
+  vi.useFakeTimers({ shouldAdvanceTime: true })
+  vi.setSystemTime(new Date(2026, 8, 12, 10, 0))
+  vi.stubGlobal('fetch', vi.fn())
+})
+
+afterEach(() => {
+  vi.useRealTimers()
+  vi.unstubAllGlobals()
+})
+
 describe('форма добавления задачи', () => {
-  beforeEach(() => {
-    vi.stubGlobal('fetch', vi.fn())
-  })
-
-  afterEach(() => {
-    vi.unstubAllGlobals()
-  })
-
-  it('показывает созданную задачу в списке без перезагрузки', async () => {
+  it('показывает созданную задачу в списке без перезагрузки страницы', async () => {
+    const created = taskJson('Купить хлеб')
     const fetchMock = vi.mocked(fetch)
     fetchMock.mockResolvedValueOnce(jsonResponse([]))
-    fetchMock.mockResolvedValueOnce(jsonResponse(taskJson('Купить хлеб'), 201))
+    fetchMock.mockResolvedValueOnce(jsonResponse(created, 201))
+    fetchMock.mockResolvedValueOnce(jsonResponse([created]))
 
     render(<App />)
     await screen.findByText('Задач пока нет.')
@@ -41,10 +56,83 @@ describe('форма добавления задачи', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Добавить' }))
 
     expect(await screen.findByText('Купить хлеб')).toBeInTheDocument()
-
-    // Список не перезапрашивается: два вызова — начальная загрузка и создание.
-    expect(fetchMock).toHaveBeenCalledTimes(2)
     expect(screen.getByLabelText('Заголовок новой задачи')).toHaveValue('')
+  })
+
+  it('отправляет заданный срок вместе с заголовком', async () => {
+    const created = taskJson('Позвонить маме', false, '2026-09-20', '18:00:00')
+    const fetchMock = vi.mocked(fetch)
+    fetchMock.mockResolvedValueOnce(jsonResponse([]))
+    fetchMock.mockResolvedValueOnce(jsonResponse(created, 201))
+    fetchMock.mockResolvedValueOnce(jsonResponse([created]))
+
+    render(<App />)
+    await screen.findByText('Задач пока нет.')
+
+    await userEvent.type(screen.getByLabelText('Заголовок новой задачи'), 'Позвонить маме')
+    await userEvent.type(screen.getByLabelText('Дата срока'), '2026-09-20')
+    await userEvent.type(screen.getByLabelText('Время срока'), '18:00')
+    await userEvent.click(screen.getByRole('button', { name: 'Добавить' }))
+
+    await screen.findByText('Позвонить маме')
+
+    const [, postCall] = fetchMock.mock.calls
+    expect(postCall[1]).toMatchObject({
+      method: 'POST',
+      body: JSON.stringify({ title: 'Позвонить маме', dueDate: '2026-09-20', dueTime: '18:00' }),
+    })
+  })
+
+  it('без даты отправляет пустой срок', async () => {
+    const created = taskJson('Разобрать шкаф')
+    const fetchMock = vi.mocked(fetch)
+    fetchMock.mockResolvedValueOnce(jsonResponse([]))
+    fetchMock.mockResolvedValueOnce(jsonResponse(created, 201))
+    fetchMock.mockResolvedValueOnce(jsonResponse([created]))
+
+    render(<App />)
+    await screen.findByText('Задач пока нет.')
+
+    await userEvent.type(screen.getByLabelText('Заголовок новой задачи'), 'Разобрать шкаф')
+    await userEvent.click(screen.getByRole('button', { name: 'Добавить' }))
+
+    await screen.findByText('Разобрать шкаф')
+
+    const [, postCall] = fetchMock.mock.calls
+    expect(postCall[1]).toMatchObject({
+      body: JSON.stringify({ title: 'Разобрать шкаф', dueDate: null, dueTime: null }),
+    })
+  })
+
+  it('не даёт задать время, пока не выбрана дата', async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(jsonResponse([]))
+
+    render(<App />)
+    await screen.findByText('Задач пока нет.')
+
+    expect(screen.getByLabelText('Время срока')).toBeDisabled()
+
+    await userEvent.type(screen.getByLabelText('Дата срока'), '2026-09-20')
+
+    expect(screen.getByLabelText('Время срока')).toBeEnabled()
+  })
+
+  it('очищает поля срока после создания', async () => {
+    const created = taskJson('Сдать отчёт', false, '2026-09-20')
+    const fetchMock = vi.mocked(fetch)
+    fetchMock.mockResolvedValueOnce(jsonResponse([]))
+    fetchMock.mockResolvedValueOnce(jsonResponse(created, 201))
+    fetchMock.mockResolvedValueOnce(jsonResponse([created]))
+
+    render(<App />)
+    await screen.findByText('Задач пока нет.')
+
+    await userEvent.type(screen.getByLabelText('Заголовок новой задачи'), 'Сдать отчёт')
+    await userEvent.type(screen.getByLabelText('Дата срока'), '2026-09-20')
+    await userEvent.click(screen.getByRole('button', { name: 'Добавить' }))
+
+    await screen.findByText('Сдать отчёт')
+    expect(screen.getByLabelText('Дата срока')).toHaveValue('')
   })
 
   it('показывает сообщение об ошибке от сервера и не добавляет задачу', async () => {
@@ -65,8 +153,7 @@ describe('форма добавления задачи', () => {
   })
 
   it('не даёт отправить пустой заголовок', async () => {
-    const fetchMock = vi.mocked(fetch)
-    fetchMock.mockResolvedValueOnce(jsonResponse([]))
+    vi.mocked(fetch).mockResolvedValueOnce(jsonResponse([]))
 
     render(<App />)
     await screen.findByText('Задач пока нет.')
@@ -79,14 +166,6 @@ describe('форма добавления задачи', () => {
 })
 
 describe('отметка выполнения', () => {
-  beforeEach(() => {
-    vi.stubGlobal('fetch', vi.fn())
-  })
-
-  afterEach(() => {
-    vi.unstubAllGlobals()
-  })
-
   it('отмечает задачу выполненной по клику и запоминает ответ сервера', async () => {
     const task = taskJson('Купить хлеб')
     const fetchMock = vi.mocked(fetch)
@@ -106,7 +185,8 @@ describe('отметка выполнения', () => {
     expect(patchCall[0]).toBe(`/api/tasks/${task.id}`)
     expect(patchCall[1]).toMatchObject({ method: 'PATCH', body: JSON.stringify({ isDone: true }) })
 
-    // Список не перезапрашивается: два вызова — начальная загрузка и отметка.
+    // Отметка не меняет порядок ленты, поэтому список не перезапрашивается:
+    // два вызова — начальная загрузка и сама отметка.
     expect(fetchMock).toHaveBeenCalledTimes(2)
   })
 
@@ -144,6 +224,21 @@ describe('отметка выполнения', () => {
     expect(screen.getByRole('checkbox', { name: 'Позвонить врачу' })).not.toBeChecked()
   })
 
+  it('не теряет срок задачи при отметке', async () => {
+    const task = taskJson('Оплатить счёт', false, TODAY, '12:00:00')
+    const fetchMock = vi.mocked(fetch)
+    fetchMock.mockResolvedValueOnce(jsonResponse([task]))
+    fetchMock.mockResolvedValueOnce(jsonResponse({ ...task, isDone: true }))
+
+    render(<App />)
+
+    await userEvent.click(await screen.findByRole('checkbox', { name: 'Оплатить счёт' }))
+
+    await waitFor(() => expect(screen.getByRole('checkbox', { name: 'Оплатить счёт' })).toBeChecked())
+    expect(screen.getByText('12:00')).toBeInTheDocument()
+    expect(screen.getByText('Сегодня')).toBeInTheDocument()
+  })
+
   it('показывает ошибку сервера и оставляет отметку прежней', async () => {
     const task = taskJson('Сдать отчёт')
     const fetchMock = vi.mocked(fetch)
@@ -160,35 +255,50 @@ describe('отметка выполнения', () => {
 })
 
 describe('лента задач', () => {
-  beforeEach(() => {
-    vi.stubGlobal('fetch', vi.fn())
-  })
-
-  afterEach(() => {
-    vi.unstubAllGlobals()
-  })
-
-  it('разделяет задачи по дням создания и подписывает состояние', async () => {
+  it('разделяет задачи по сроку и подписывает состояние', async () => {
     const tasks = [
-      { id: '1', title: 'Сегодняшняя', isDone: false, createdAt: '2026-09-11T09:00:00' },
-      { id: '2', title: 'Вчерашняя', isDone: true, createdAt: '2026-09-10T18:30:00' },
+      taskJson('Просроченная', false, '2026-09-10'),
+      taskJson('Сегодняшняя', false, TODAY, '09:30:00'),
+      taskJson('Завтрашняя', true, '2026-09-13'),
+      taskJson('Бессрочная'),
     ]
     vi.mocked(fetch).mockResolvedValueOnce(jsonResponse(tasks))
 
     render(<App />)
 
-    expect(await screen.findByText('Пятница, 11 сентября 2026 г.')).toBeInTheDocument()
-    expect(screen.getByText('Четверг, 10 сентября 2026 г.')).toBeInTheDocument()
-    expect(screen.getByText('18:30')).toBeInTheDocument()
+    expect(await screen.findByText('Просрочено')).toBeInTheDocument()
+    expect(screen.getByText('Сегодня')).toBeInTheDocument()
+    expect(screen.getByText('Завтра')).toBeInTheDocument()
+    expect(screen.getByText('Без срока')).toBeInTheDocument()
+    expect(screen.getByText('09:30')).toBeInTheDocument()
     expect(screen.getByText('Выполнено')).toBeInTheDocument()
-    expect(screen.getByText('В работе')).toBeInTheDocument()
+  })
+
+  it('у просроченной задачи показывает дату, а не одно время', async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(
+      jsonResponse([taskJson('Забытая', false, '2026-09-10', '08:00:00')]),
+    )
+
+    render(<App />)
+
+    expect(await screen.findByText('10 сентября, 08:00')).toBeInTheDocument()
+  })
+
+  it('у задачи без срока не показывает ни даты, ни времени', async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(jsonResponse([taskJson('Когда-нибудь')]))
+
+    render(<App />)
+
+    await screen.findByText('Когда-нибудь')
+    expect(screen.queryByText('Без срока')).toBeInTheDocument()
+    expect(document.querySelector('.task-due')).toBeNull()
   })
 
   it('считает в шапке невыполненные задачи', async () => {
     const tasks = [
-      { id: '1', title: 'Первая', isDone: false, createdAt: '2026-09-11T09:00:00' },
-      { id: '2', title: 'Вторая', isDone: false, createdAt: '2026-09-11T10:00:00' },
-      { id: '3', title: 'Третья', isDone: true, createdAt: '2026-09-11T11:00:00' },
+      taskJson('Первая', false, TODAY),
+      taskJson('Вторая', false, TODAY),
+      taskJson('Третья', true, TODAY),
     ]
     vi.mocked(fetch).mockResolvedValueOnce(jsonResponse(tasks))
 
@@ -198,7 +308,7 @@ describe('лента задач', () => {
   })
 
   it('после отметки последней задачи шапка говорит, что всё выполнено', async () => {
-    const task = { id: '1', title: 'Последняя', isDone: false, createdAt: '2026-09-11T09:00:00' }
+    const task = taskJson('Последняя', false, TODAY)
     const fetchMock = vi.mocked(fetch)
     fetchMock.mockResolvedValueOnce(jsonResponse([task]))
     fetchMock.mockResolvedValueOnce(jsonResponse({ ...task, isDone: true }))

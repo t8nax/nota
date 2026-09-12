@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { createTask, fetchTasks, setTaskDone, type TaskResponse } from './api'
+import { createTask, fetchTasks, setTaskDone, type DueInput, type TaskResponse } from './api'
 import NewTaskForm from './components/NewTaskForm'
 import Sidebar from './components/Sidebar'
 import TaskStream from './components/TaskStream'
@@ -42,19 +42,12 @@ function App() {
     }
   }, [])
 
-  async function handleCreate(title: string): Promise<boolean> {
+  async function handleCreate(title: string, due: DueInput): Promise<boolean> {
     setSubmitting(true)
     setSubmitError(null)
 
     try {
-      const created = await createTask(title)
-
-      // Список отсортирован по времени создания вниз, поэтому новая задача идёт первой.
-      setList((current) =>
-        current.status === 'ready' ? { status: 'ready', tasks: [created, ...current.tasks] } : current,
-      )
-
-      return true
+      await createTask(title, due)
     } catch (error: unknown) {
       setSubmitError(describe(error))
 
@@ -62,6 +55,16 @@ function App() {
     } finally {
       setSubmitting(false)
     }
+
+    // Место новой задачи в ленте задаёт срок, а порядок считает сервер, поэтому
+    // список перечитывается целиком, а не достраивается на клиенте.
+    try {
+      setList({ status: 'ready', tasks: await fetchTasks() })
+    } catch (error: unknown) {
+      setSubmitError(describe(error))
+    }
+
+    return true
   }
 
   async function handleToggle(task: TaskResponse) {

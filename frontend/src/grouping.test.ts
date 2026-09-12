@@ -1,39 +1,52 @@
 import { describe, expect, it } from 'vitest'
-import { groupByDay } from './grouping'
+import { groupByDue } from './grouping'
 import type { TaskResponse } from './api'
 
-function task(id: string, createdAt: string): TaskResponse {
-  return { id, title: id, isDone: false, createdAt }
+const NOW = new Date(2026, 8, 12, 10, 0)
+
+function task(id: string, dueDate: string | null = null, dueTime: string | null = null): TaskResponse {
+  return { id, title: id, isDone: false, createdAt: '2026-09-01T10:00:00', dueDate, dueTime }
 }
 
-describe('группировка ленты по дням', () => {
-  it('складывает задачи одного дня в одну группу', () => {
-    const groups = groupByDay([
-      task('поздняя', '2026-09-11T18:00:00'),
-      task('ранняя', '2026-09-11T08:30:00'),
-    ])
+describe('группировка ленты по сроку', () => {
+  it('называет группы сегодняшнего и завтрашнего дня словами', () => {
+    const groups = groupByDue([task('сегодня', '2026-09-12'), task('завтра', '2026-09-13')], NOW)
+
+    expect(groups.map((g) => g.title)).toEqual(['Сегодня', 'Завтра'])
+  })
+
+  it('дальние дни подписывает днём недели и датой', () => {
+    const [group] = groupByDue([task('через неделю', '2026-09-19')], NOW)
+
+    expect(group.title).toBe('Суббота, 19 сентября 2026 г.')
+  })
+
+  it('сливает все прошедшие дни в одну просроченную группу', () => {
+    const groups = groupByDue([task('позавчера', '2026-09-10'), task('вчера', '2026-09-11')], NOW)
 
     expect(groups).toHaveLength(1)
-    expect(groups[0].tasks.map((t) => t.id)).toEqual(['поздняя', 'ранняя'])
+    expect(groups[0].title).toBe('Просрочено')
+    expect(groups[0].overdue).toBe(true)
+    expect(groups[0].tasks.map((t) => t.id)).toEqual(['позавчера', 'вчера'])
   })
 
-  it('режет список по границе дня, сохраняя порядок', () => {
-    const groups = groupByDay([
-      task('сегодня', '2026-09-11T09:00:00'),
-      task('вчера', '2026-09-10T23:59:00'),
-      task('позавчера', '2026-09-09T10:00:00'),
-    ])
+  it('задачи без срока собирает в отдельную группу', () => {
+    const groups = groupByDue([task('со сроком', '2026-09-12'), task('без срока')], NOW)
 
-    expect(groups.map((g) => g.tasks.map((t) => t.id))).toEqual([['сегодня'], ['вчера'], ['позавчера']])
+    expect(groups.map((g) => g.title)).toEqual(['Сегодня', 'Без срока'])
+    expect(groups[1].overdue).toBe(false)
   })
 
-  it('называет группу днём недели и датой', () => {
-    const [group] = groupByDay([task('одна', '2026-09-11T09:00:00')])
+  it('сохраняет порядок задач внутри дня', () => {
+    const groups = groupByDue(
+      [task('весь день', '2026-09-12'), task('утром', '2026-09-12', '09:00:00')],
+      NOW,
+    )
 
-    expect(group.title).toBe('Пятница, 11 сентября 2026 г.')
+    expect(groups[0].tasks.map((t) => t.id)).toEqual(['весь день', 'утром'])
   })
 
   it('на пустом списке не даёт групп', () => {
-    expect(groupByDay([])).toEqual([])
+    expect(groupByDue([], NOW)).toEqual([])
   })
 })

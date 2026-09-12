@@ -1,21 +1,37 @@
 import type { TaskResponse } from '../api'
-import { formatTime } from '../dates'
+import { formatShortDay, formatTime } from '../dates'
 
 interface TaskCardProps {
   task: TaskResponse
+  /** Задача из просроченной группы: срок показывается с датой и подсвечен. */
+  overdue: boolean
   pending: boolean
   onToggle: (task: TaskResponse) => void
 }
 
-/** Карточка ленты: шапка с состоянием и временем, под ней отметка и заголовок. */
-function TaskCard({ task, pending, onToggle }: TaskCardProps) {
+/** Срок в шапке карточки. День берётся из заголовка группы, кроме просроченных:
+ * там в одной группе лежат разные дни, и без даты непонятно, насколько давно. */
+function dueLabel(task: TaskResponse, overdue: boolean): string | null {
+  if (task.dueDate === null) return null
+
+  const time = task.dueTime === null ? null : formatTime(task.dueTime)
+
+  if (!overdue) return time
+
+  return time === null ? formatShortDay(task.dueDate) : `${formatShortDay(task.dueDate)}, ${time}`
+}
+
+/** Карточка ленты: шапка с состоянием и сроком, под ней отметка и заголовок. */
+function TaskCard({ task, overdue, pending, onToggle }: TaskCardProps) {
+  const due = dueLabel(task, overdue)
+
   return (
     <div className="task-card">
       <div className="task-meta">
         <span className={task.isDone ? 'status-tag done' : 'status-tag'}>
           {task.isDone ? 'Выполнено' : 'В работе'}
         </span>
-        <span className="task-time">{formatTime(task.createdAt)}</span>
+        {due && <span className={overdue ? 'task-due overdue' : 'task-due'}>{due}</span>}
       </div>
 
       {/* Заголовок внутри label: он же служит доступным именем для отметки. */}

@@ -88,4 +88,76 @@ public class CreateTaskTests(TodolistApiFactory factory)
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
         Assert.Single(await factory.GetTasksAsync());
     }
+
+    [Fact]
+    public async Task Creates_task_without_due_date()
+    {
+        await factory.ResetAsync();
+
+        var client = factory.CreateClient();
+
+        var response = await client.PostAsJsonAsync("/api/tasks", new CreateTaskRequest("Разобрать шкаф"));
+
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+
+        var created = await response.Content.ReadFromJsonAsync<TaskResponse>();
+        Assert.NotNull(created);
+        Assert.Null(created.DueDate);
+        Assert.Null(created.DueTime);
+    }
+
+    [Fact]
+    public async Task Creates_task_with_due_date_only()
+    {
+        await factory.ResetAsync();
+
+        var client = factory.CreateClient();
+        var due = new DateOnly(2026, 9, 20);
+
+        var response = await client.PostAsJsonAsync("/api/tasks", new CreateTaskRequest("Сдать анализы", due));
+
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+
+        var created = await response.Content.ReadFromJsonAsync<TaskResponse>();
+        Assert.NotNull(created);
+        Assert.Equal(due, created.DueDate);
+        Assert.Null(created.DueTime);
+
+        var stored = Assert.Single(await factory.GetTasksAsync());
+        Assert.Equal(due, stored.DueDate);
+        Assert.Null(stored.DueTime);
+    }
+
+    [Fact]
+    public async Task Creates_task_with_due_date_and_time()
+    {
+        await factory.ResetAsync();
+
+        var client = factory.CreateClient();
+        var due = new DateOnly(2026, 9, 20);
+        var at = new TimeOnly(18, 0);
+
+        var response = await client.PostAsJsonAsync("/api/tasks", new CreateTaskRequest("Позвонить маме", due, at));
+
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+
+        var stored = Assert.Single(await factory.GetTasksAsync());
+        Assert.Equal(due, stored.DueDate);
+        Assert.Equal(at, stored.DueTime);
+    }
+
+    [Fact]
+    public async Task Rejects_time_without_date()
+    {
+        await factory.ResetAsync();
+
+        var client = factory.CreateClient();
+
+        var response = await client.PostAsJsonAsync(
+            "/api/tasks",
+            new CreateTaskRequest("Забрать справку", DueTime: new TimeOnly(10, 0)));
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Empty(await factory.GetTasksAsync());
+    }
 }
