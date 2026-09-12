@@ -250,19 +250,19 @@
 .new-task-due {
   display: flex;
   gap: 12px;
-  /* Левый край чипов совпадает с началом текста в поле заголовка: у того 44px
-     отступа слева под иконку, и поля срока встают ровно под «Что нужно сделать?». */
-  padding-left: 44px;
 }
 
 .due-slot {
   position: relative;
 }
 
+/* Чип повторяет раскладку поля заголовка, и срок встаёт под «Что нужно сделать?»:
+   16px до иконки, 18px иконка, 10px до текста — те же числа, что у `.new-task-title`
+   с её иконкой. Совпадают все три линии: край таблетки, иконка и текст. */
 .due-chip {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   padding: 10px 16px;
   background: var(--bg-input);
   border: 1px solid transparent;
