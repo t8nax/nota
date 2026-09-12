@@ -5,15 +5,15 @@ using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
-using Todolist.Api.Data;
+using Nota.Api.Data;
 
 #nullable disable
 
-namespace Todolist.Api.Data.Migrations
+namespace Nota.Api.Data.Migrations
 {
-    [DbContext(typeof(TodolistDbContext))]
-    [Migration("20260911192653_InitialCreate")]
-    partial class InitialCreate
+    [DbContext(typeof(NotaDbContext))]
+    [Migration("20260912114432_AddTaskDueDate")]
+    partial class AddTaskDueDate
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -25,7 +25,7 @@ namespace Todolist.Api.Data.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
-            modelBuilder.Entity("Todolist.Api.Domain.TodoTask", b =>
+            modelBuilder.Entity("Nota.Api.Domain.TodoTask", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -33,6 +33,12 @@ namespace Todolist.Api.Data.Migrations
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateOnly?>("DueDate")
+                        .HasColumnType("date");
+
+                    b.Property<TimeOnly?>("DueTime")
+                        .HasColumnType("time without time zone");
 
                     b.Property<bool>("IsDone")
                         .HasColumnType("boolean");
@@ -44,7 +50,10 @@ namespace Todolist.Api.Data.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("tasks", (string)null);
+                    b.ToTable("tasks", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_tasks_DueTimeRequiresDueDate", "\"DueTime\" IS NULL OR \"DueDate\" IS NOT NULL");
+                        });
                 });
 #pragma warning restore 612, 618
         }

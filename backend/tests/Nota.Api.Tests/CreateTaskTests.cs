@@ -1,12 +1,12 @@
 using System.Net;
 using System.Net.Http.Json;
-using Todolist.Api.Contracts;
-using Todolist.Api.Domain;
+using Nota.Api.Contracts;
+using Nota.Api.Domain;
 
-namespace Todolist.Api.Tests;
+namespace Nota.Api.Tests;
 
 [Collection(nameof(ApiCollection))]
-public class CreateTaskTests(TodolistApiFactory factory)
+public class CreateTaskTests(NotaApiFactory factory)
 {
     [Fact]
     public async Task Creates_task_and_returns_it()

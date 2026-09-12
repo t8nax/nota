@@ -1,4 +1,4 @@
-namespace Todolist.Api.Contracts;
+namespace Nota.Api.Contracts;
 
 public record TaskResponse(
     Guid Id,

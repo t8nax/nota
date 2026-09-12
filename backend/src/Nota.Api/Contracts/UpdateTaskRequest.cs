@@ -1,4 +1,4 @@
-namespace Todolist.Api.Contracts;
+namespace Nota.Api.Contracts;
 
 /// <summary>
 /// Тело PATCH: переданные поля меняются, непереданные остаются как были.

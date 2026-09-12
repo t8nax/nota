@@ -1,13 +1,13 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Text;
-using Todolist.Api.Contracts;
-using Todolist.Api.Domain;
+using Nota.Api.Contracts;
+using Nota.Api.Domain;
 
-namespace Todolist.Api.Tests;
+namespace Nota.Api.Tests;
 
 [Collection(nameof(ApiCollection))]
-public class UpdateTaskTests(TodolistApiFactory factory)
+public class UpdateTaskTests(NotaApiFactory factory)
 {
     private static TodoTask NewTask(
         string title,

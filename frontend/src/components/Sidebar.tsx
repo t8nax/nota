@@ -10,7 +10,7 @@ function Sidebar() {
             strokeLinejoin="round"
           />
         </svg>
-        <span>Everlog</span>
+        <span>Nota</span>
       </div>
 
       <nav aria-label="Списки">

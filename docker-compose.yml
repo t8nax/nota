@@ -1,17 +1,19 @@
+name: nota
+
 services:
   db:
     image: postgres:17-alpine
-    container_name: todolist-db
+    container_name: nota-db
     environment:
-      POSTGRES_DB: todolist
-      POSTGRES_USER: todolist
-      POSTGRES_PASSWORD: todolist_dev
+      POSTGRES_DB: nota
+      POSTGRES_USER: nota
+      POSTGRES_PASSWORD: nota_dev
     ports:
       - "5434:5432"
     volumes:
       - db-data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U todolist -d todolist"]
+      test: ["CMD-SHELL", "pg_isready -U nota -d nota"]
       interval: 5s
       timeout: 5s
       retries: 10

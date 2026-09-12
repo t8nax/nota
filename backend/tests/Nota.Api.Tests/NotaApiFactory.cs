@@ -3,15 +3,15 @@ using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
-using Todolist.Api.Data;
-using Todolist.Api.Domain;
+using Nota.Api.Data;
+using Nota.Api.Domain;
 
-namespace Todolist.Api.Tests;
+namespace Nota.Api.Tests;
 
-public class TodolistApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
+public class NotaApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
 {
     private const string TestConnectionString =
-        "Host=localhost;Port=5434;Database=todolist_test;Username=todolist;Password=todolist_dev";
+        "Host=localhost;Port=5434;Database=nota_test;Username=nota;Password=nota_dev";
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
@@ -19,16 +19,16 @@ public class TodolistApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
 
         builder.ConfigureServices(services =>
         {
-            services.RemoveAll<DbContextOptions<TodolistDbContext>>();
-            services.RemoveAll<TodolistDbContext>();
-            services.AddDbContext<TodolistDbContext>(options => options.UseNpgsql(TestConnectionString));
+            services.RemoveAll<DbContextOptions<NotaDbContext>>();
+            services.RemoveAll<NotaDbContext>();
+            services.AddDbContext<NotaDbContext>(options => options.UseNpgsql(TestConnectionString));
         });
     }
 
     async Task IAsyncLifetime.InitializeAsync()
     {
         using var scope = Services.CreateScope();
-        var db = scope.ServiceProvider.GetRequiredService<TodolistDbContext>();
+        var db = scope.ServiceProvider.GetRequiredService<NotaDbContext>();
         await db.Database.EnsureDeletedAsync();
         await db.Database.MigrateAsync();
     }
@@ -37,7 +37,7 @@ public class TodolistApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
     {
         using (var scope = Services.CreateScope())
         {
-            var db = scope.ServiceProvider.GetRequiredService<TodolistDbContext>();
+            var db = scope.ServiceProvider.GetRequiredService<NotaDbContext>();
             await db.Database.EnsureDeletedAsync();
         }
 
@@ -48,7 +48,7 @@ public class TodolistApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
     public async Task ResetAsync()
     {
         using var scope = Services.CreateScope();
-        var db = scope.ServiceProvider.GetRequiredService<TodolistDbContext>();
+        var db = scope.ServiceProvider.GetRequiredService<NotaDbContext>();
         await db.Tasks.ExecuteDeleteAsync();
     }
 
@@ -56,14 +56,14 @@ public class TodolistApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
     public async Task<List<TodoTask>> GetTasksAsync()
     {
         using var scope = Services.CreateScope();
-        var db = scope.ServiceProvider.GetRequiredService<TodolistDbContext>();
+        var db = scope.ServiceProvider.GetRequiredService<NotaDbContext>();
         return await db.Tasks.AsNoTracking().ToListAsync();
     }
 
     public async Task SeedAsync(params TodoTask[] tasks)
     {
         using var scope = Services.CreateScope();
-        var db = scope.ServiceProvider.GetRequiredService<TodolistDbContext>();
+        var db = scope.ServiceProvider.GetRequiredService<NotaDbContext>();
         db.Tasks.AddRange(tasks);
         await db.SaveChangesAsync();
     }

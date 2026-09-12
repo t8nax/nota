@@ -1,9 +1,9 @@
 using Microsoft.EntityFrameworkCore;
-using Todolist.Api.Domain;
+using Nota.Api.Domain;
 
-namespace Todolist.Api.Data;
+namespace Nota.Api.Data;
 
-public class TodolistDbContext(DbContextOptions<TodolistDbContext> options) : DbContext(options)
+public class NotaDbContext(DbContextOptions<NotaDbContext> options) : DbContext(options)
 {
     public DbSet<TodoTask> Tasks => Set<TodoTask>();
 

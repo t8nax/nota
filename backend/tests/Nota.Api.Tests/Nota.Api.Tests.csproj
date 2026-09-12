@@ -20,7 +20,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\Todolist.Api\Todolist.Api.csproj" />
+    <ProjectReference Include="..\..\src\Nota.Api\Nota.Api.csproj" />
   </ItemGroup>
 
 </Project>

@@ -1,12 +1,12 @@
 using System.Net;
 using System.Net.Http.Json;
-using Todolist.Api.Contracts;
-using Todolist.Api.Domain;
+using Nota.Api.Contracts;
+using Nota.Api.Domain;
 
-namespace Todolist.Api.Tests;
+namespace Nota.Api.Tests;
 
 [Collection(nameof(ApiCollection))]
-public class GetTasksTests(TodolistApiFactory factory)
+public class GetTasksTests(NotaApiFactory factory)
 {
     [Fact]
     public async Task Returns_empty_list_when_no_tasks()

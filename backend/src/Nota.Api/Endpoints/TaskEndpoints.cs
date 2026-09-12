@@ -1,9 +1,9 @@
 using Microsoft.EntityFrameworkCore;
-using Todolist.Api.Contracts;
-using Todolist.Api.Data;
-using Todolist.Api.Domain;
+using Nota.Api.Contracts;
+using Nota.Api.Data;
+using Nota.Api.Domain;
 
-namespace Todolist.Api.Endpoints;
+namespace Nota.Api.Endpoints;
 
 public static class TaskEndpoints
 {
@@ -11,7 +11,7 @@ public static class TaskEndpoints
     {
         var group = routes.MapGroup("/api/tasks");
 
-        group.MapGet("/", async (TodolistDbContext db, CancellationToken ct) =>
+        group.MapGet("/", async (NotaDbContext db, CancellationToken ct) =>
         {
             // Порядок ленты: сначала по сроку, задачи без срока — в хвосте; внутри дня
             // задача на день целиком идёт перед задачами с временем.
@@ -28,7 +28,7 @@ public static class TaskEndpoints
         })
         .WithName("GetTasks");
 
-        group.MapPost("/", async (CreateTaskRequest request, TodolistDbContext db, CancellationToken ct) =>
+        group.MapPost("/", async (CreateTaskRequest request, NotaDbContext db, CancellationToken ct) =>
         {
             var title = request.Title?.Trim() ?? string.Empty;
 
@@ -75,7 +75,7 @@ public static class TaskEndpoints
         })
         .WithName("CreateTask");
 
-        group.MapPatch("/{id:guid}", async (Guid id, UpdateTaskRequest request, TodolistDbContext db, CancellationToken ct) =>
+        group.MapPatch("/{id:guid}", async (Guid id, UpdateTaskRequest request, NotaDbContext db, CancellationToken ct) =>
         {
             if (!request.IsDone.IsSet && !request.DueDate.IsSet && !request.DueTime.IsSet)
             {

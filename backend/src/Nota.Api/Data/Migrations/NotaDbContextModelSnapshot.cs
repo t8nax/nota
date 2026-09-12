@@ -2,21 +2,18 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
-using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
-using Todolist.Api.Data;
+using Nota.Api.Data;
 
 #nullable disable
 
-namespace Todolist.Api.Data.Migrations
+namespace Nota.Api.Data.Migrations
 {
-    [DbContext(typeof(TodolistDbContext))]
-    [Migration("20260912114432_AddTaskDueDate")]
-    partial class AddTaskDueDate
+    [DbContext(typeof(NotaDbContext))]
+    partial class NotaDbContextModelSnapshot : ModelSnapshot
     {
-        /// <inheritdoc />
-        protected override void BuildTargetModel(ModelBuilder modelBuilder)
+        protected override void BuildModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -25,7 +22,7 @@ namespace Todolist.Api.Data.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
-            modelBuilder.Entity("Todolist.Api.Domain.TodoTask", b =>
+            modelBuilder.Entity("Nota.Api.Domain.TodoTask", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()

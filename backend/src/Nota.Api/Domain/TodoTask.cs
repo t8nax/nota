@@ -1,4 +1,4 @@
-namespace Todolist.Api.Domain;
+namespace Nota.Api.Domain;
 
 public class TodoTask
 {

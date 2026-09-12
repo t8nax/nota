@@ -1,12 +1,12 @@
 using Microsoft.EntityFrameworkCore;
-using Todolist.Api.Data;
-using Todolist.Api.Endpoints;
+using Nota.Api.Data;
+using Nota.Api.Endpoints;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddOpenApi();
-builder.Services.AddDbContext<TodolistDbContext>(options =>
-    options.UseNpgsql(builder.Configuration.GetConnectionString("Todolist")));
+builder.Services.AddDbContext<NotaDbContext>(options =>
+    options.UseNpgsql(builder.Configuration.GetConnectionString("Nota")));
 
 var app = builder.Build();
 

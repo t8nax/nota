@@ -1,7 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
-namespace Todolist.Api.Contracts;
+namespace Nota.Api.Contracts;
 
 /// <summary>
 /// Поле частичного изменения: отличает «не передано» от «передано null».
