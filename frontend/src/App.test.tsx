@@ -2,7 +2,7 @@ import { act, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import App from './App'
-import { TOAST_LIFETIME_MS } from './components/ErrorToasts'
+import { TOAST_LIFETIME_MS } from './components/Toasts'
 
 /** Лента считает «сегодня» по часам машины, поэтому во всех тестах день фиксирован. */
 const TODAY = '2026-09-12'
@@ -245,7 +245,7 @@ describe('попап срока', () => {
 })
 
 describe('отметка выполнения', () => {
-  it('отмечает задачу выполненной по клику и запоминает ответ сервера', async () => {
+  it('убирает задачу с экрана и запоминает ответ сервера', async () => {
     const task = taskJson('Купить хлеб')
     const fetchMock = vi.mocked(fetch)
     fetchMock.mockResolvedValueOnce(jsonResponse([task]))
@@ -253,39 +253,51 @@ describe('отметка выполнения', () => {
 
     render(<App />)
 
-    const checkbox = await screen.findByRole('checkbox', { name: 'Купить хлеб' })
-    expect(checkbox).not.toBeChecked()
+    await userEvent.click(await screen.findByRole('checkbox', { name: 'Купить хлеб' }))
 
-    await userEvent.click(checkbox)
-
-    expect(await screen.findByRole('checkbox', { name: 'Купить хлеб' })).toBeChecked()
+    await waitFor(() => expect(screen.queryByRole('checkbox', { name: 'Купить хлеб' })).toBeNull())
 
     const [, patchCall] = fetchMock.mock.calls
     expect(patchCall[0]).toBe(`/api/tasks/${task.id}`)
     expect(patchCall[1]).toMatchObject({ method: 'PATCH', body: JSON.stringify({ isDone: true }) })
 
-    // Отметка не меняет порядок ленты, поэтому список не перезапрашивается:
-    // два вызова — начальная загрузка и сама отметка.
+    // Задача уходит с экрана фильтром по уже загруженному списку, поэтому список
+    // не перезапрашивается: два вызова — начальная загрузка и сама отметка.
     expect(fetchMock).toHaveBeenCalledTimes(2)
   })
 
-  it('снимает отметку с выполненной задачи', async () => {
-    const task = taskJson('Полить цветы', true)
+  it('выполненную задачу не показывает и при загрузке списка', async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(
+      jsonResponse([taskJson('Полить цветы', true), taskJson('Купить хлеб')]),
+    )
+
+    render(<App />)
+
+    await screen.findByRole('checkbox', { name: 'Купить хлеб' })
+    expect(screen.queryByText('Полить цветы')).toBeNull()
+  })
+
+  it('показывает попап с возвратом и возвращает задачу в ленту', async () => {
+    const task = taskJson('Купить хлеб')
     const fetchMock = vi.mocked(fetch)
     fetchMock.mockResolvedValueOnce(jsonResponse([task]))
+    fetchMock.mockResolvedValueOnce(jsonResponse({ ...task, isDone: true }))
     fetchMock.mockResolvedValueOnce(jsonResponse({ ...task, isDone: false }))
 
     render(<App />)
 
-    const checkbox = await screen.findByRole('checkbox', { name: 'Полить цветы' })
-    expect(checkbox).toBeChecked()
+    await userEvent.click(await screen.findByRole('checkbox', { name: 'Купить хлеб' }))
 
-    await userEvent.click(checkbox)
+    const message = await screen.findByText('Выполнено: Купить хлеб')
+    expect(message.closest('.toast')).not.toBeNull()
 
-    await waitFor(() => expect(screen.getByRole('checkbox', { name: 'Полить цветы' })).not.toBeChecked())
+    await userEvent.click(screen.getByRole('button', { name: 'Вернуть' }))
 
-    const [, patchCall] = fetchMock.mock.calls
-    expect(patchCall[1]).toMatchObject({ body: JSON.stringify({ isDone: false }) })
+    expect(await screen.findByRole('checkbox', { name: 'Купить хлеб' })).not.toBeChecked()
+    expect(screen.queryByText('Выполнено: Купить хлеб')).toBeNull()
+
+    const [, , restoreCall] = fetchMock.mock.calls
+    expect(restoreCall[1]).toMatchObject({ method: 'PATCH', body: JSON.stringify({ isDone: false }) })
   })
 
   it('трогает только ту задачу, по которой кликнули', async () => {
@@ -299,21 +311,23 @@ describe('отметка выполнения', () => {
 
     await userEvent.click(await screen.findByRole('checkbox', { name: 'Забрать посылку' }))
 
-    await waitFor(() => expect(screen.getByRole('checkbox', { name: 'Забрать посылку' })).toBeChecked())
+    await waitFor(() => expect(screen.queryByText('Забрать посылку')).toBeNull())
     expect(screen.getByRole('checkbox', { name: 'Позвонить врачу' })).not.toBeChecked()
   })
 
-  it('не теряет срок задачи при отметке', async () => {
+  it('не теряет срок задачи, вернувшейся из попапа', async () => {
     const task = taskJson('Оплатить счёт', false, TODAY, '12:00:00')
     const fetchMock = vi.mocked(fetch)
     fetchMock.mockResolvedValueOnce(jsonResponse([task]))
     fetchMock.mockResolvedValueOnce(jsonResponse({ ...task, isDone: true }))
+    fetchMock.mockResolvedValueOnce(jsonResponse({ ...task, isDone: false }))
 
     render(<App />)
 
     await userEvent.click(await screen.findByRole('checkbox', { name: 'Оплатить счёт' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Вернуть' }))
 
-    await waitFor(() => expect(screen.getByRole('checkbox', { name: 'Оплатить счёт' })).toBeChecked())
+    expect(await screen.findByRole('checkbox', { name: 'Оплатить счёт' })).toBeInTheDocument()
     expect(screen.getByText('12:00')).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Сегодня' })).toBeInTheDocument()
   })
@@ -340,7 +354,7 @@ describe('лента задач', () => {
     const tasks = [
       taskJson('Просроченная', false, '2026-09-10'),
       taskJson('Сегодняшняя', false, TODAY, '09:30:00'),
-      taskJson('Завтрашняя', true, '2026-09-13'),
+      taskJson('Завтрашняя', false, '2026-09-13'),
       taskJson('Бессрочная'),
     ]
     vi.mocked(fetch).mockResolvedValueOnce(jsonResponse(tasks))
@@ -352,7 +366,7 @@ describe('лента задач', () => {
     expect(screen.getByText('Завтра')).toBeInTheDocument()
     expect(screen.getByText('Без срока')).toBeInTheDocument()
     expect(screen.getByText('09:30')).toBeInTheDocument()
-    expect(screen.getByText('Выполнено')).toBeInTheDocument()
+    expect(screen.getAllByText('В работе')).toHaveLength(tasks.length)
   })
 
   it('у просроченной задачи показывает дату, а не одно время', async () => {
@@ -375,7 +389,7 @@ describe('лента задач', () => {
     expect(document.querySelector('.task-due')).toBeNull()
   })
 
-  it('считает в шапке невыполненные задачи', async () => {
+  it('считает в шапке только видимые задачи', async () => {
     const tasks = [
       taskJson('Первая', false, TODAY),
       taskJson('Вторая', false, TODAY),
@@ -388,7 +402,7 @@ describe('лента задач', () => {
     expect(await screen.findByText('Осталось 2 задачи')).toBeInTheDocument()
   })
 
-  it('после отметки последней задачи шапка говорит, что всё выполнено', async () => {
+  it('после отметки последней задачи лента пуста', async () => {
     const task = taskJson('Последняя', false, TODAY)
     const fetchMock = vi.mocked(fetch)
     fetchMock.mockResolvedValueOnce(jsonResponse([task]))
@@ -398,7 +412,8 @@ describe('лента задач', () => {
 
     await userEvent.click(await screen.findByRole('checkbox', { name: 'Последняя' }))
 
-    expect(await screen.findByText('Все задачи выполнены')).toBeInTheDocument()
+    expect(await screen.findByText('Задач пока нет.')).toBeInTheDocument()
+    expect(screen.queryByText(/Осталось/)).toBeNull()
   })
 })
 

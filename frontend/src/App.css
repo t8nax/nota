@@ -118,7 +118,7 @@
   font-weight: 500;
 }
 
-/* Попап ошибки */
+/* Попап сообщения */
 
 .toast-stack {
   position: fixed;
@@ -187,6 +187,7 @@
   }
 }
 
+/* Знак и полоска красные у отказа, зелёные у сообщения об удачном действии. */
 .toast-icon {
   display: flex;
   flex: none;
@@ -194,10 +195,35 @@
   color: var(--tag-red);
 }
 
+.toast.done .toast-icon {
+  color: var(--tag-green);
+}
+
+.toast.done .toast-countdown {
+  background: var(--tag-green);
+}
+
 .toast-message {
   flex: 1;
   min-width: 0;
   font-weight: 500;
+  color: var(--text-main);
+}
+
+/* Кнопка действия: та же высота, что у текста, и заметнее закрытия. */
+.toast-action {
+  flex: none;
+  padding: 0;
+  border: none;
+  background: transparent;
+  font: inherit;
+  font-weight: 600;
+  color: var(--accent-purple);
+  cursor: pointer;
+  transition: color 0.2s;
+}
+
+.toast-action:hover {
   color: var(--text-main);
 }
 
@@ -275,10 +301,6 @@
 .status-tag {
   text-transform: uppercase;
   color: var(--tag-blue);
-}
-
-.status-tag.done {
-  color: var(--tag-green);
 }
 
 .task-due {

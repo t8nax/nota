@@ -30,6 +30,20 @@ export async function stubTaskList(page: Page, tasks = undatedTasks) {
   })
 }
 
+/**
+ * Отметка выполнения удаётся: отвечает задачей с тем значением отметки, которое
+ * пришло в запросе, как это делает настоящий API.
+ */
+export async function stubToggle(page: Page, tasks = undatedTasks) {
+  await page.route('**/api/tasks/*', async (route) => {
+    const id = new URL(route.request().url()).pathname.split('/').pop()
+    const task = tasks.find((candidate) => candidate.id === id)
+    const { isDone } = route.request().postDataJSON() as { isDone: boolean }
+
+    await route.fulfill({ json: { ...task, isDone } })
+  })
+}
+
 /** Отметка выполнения отказывает: так на экране появляется попап ошибки. */
 export async function stubFailingToggle(page: Page) {
   await page.route('**/api/tasks/*', async (route) => {

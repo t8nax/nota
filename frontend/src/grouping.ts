@@ -61,12 +61,15 @@ export type ViewId = 'all' | 'today'
 /**
  * Оставляет задачи, которые попадают на экран. Порядок не меняется: его считает
  * сервер. Просроченное входит в «Сегодня» — иначе его видно только во всём списке,
- * и оно теряется.
+ * и оно теряется. Выполненная задача не попадает ни на один экран: она остаётся
+ * в базе, но в ленте её место занимать не должна.
  */
 export function filterForView(tasks: TaskResponse[], view: ViewId, now: Date = new Date()): TaskResponse[] {
-  if (view === 'all') return tasks
+  const open = tasks.filter((task) => !task.isDone)
+
+  if (view === 'all') return open
 
   const today = dateKey(now)
 
-  return tasks.filter((task) => task.dueDate !== null && task.dueDate <= today)
+  return open.filter((task) => task.dueDate !== null && task.dueDate <= today)
 }

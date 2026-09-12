@@ -8,6 +8,10 @@ function task(id: string, dueDate: string | null = null, dueTime: string | null 
   return { id, title: id, isDone: false, createdAt: '2026-09-01T10:00:00', dueDate, dueTime }
 }
 
+function doneTask(id: string, dueDate: string | null = null): TaskResponse {
+  return { ...task(id, dueDate), isDone: true }
+}
+
 describe('группировка ленты по сроку', () => {
   it('называет группы сегодняшнего и завтрашнего дня словами', () => {
     const groups = groupByDue([task('сегодня', '2026-09-12'), task('завтра', '2026-09-13')], NOW)
@@ -63,9 +67,20 @@ describe('фильтр экрана', () => {
     expect(filterForView(tasks, 'today', NOW).map((t) => t.id)).toEqual(['вчера', 'сегодня'])
   })
 
-  it('на экране «Все задачи» отдаёт список как есть', () => {
+  it('на экране «Все задачи» отдаёт весь список и сохраняет порядок', () => {
     const tasks = [task('завтра', '2026-09-13'), task('без срока')]
 
-    expect(filterForView(tasks, 'all', NOW)).toBe(tasks)
+    expect(filterForView(tasks, 'all', NOW).map((t) => t.id)).toEqual(['завтра', 'без срока'])
+  })
+
+  it('выполненные задачи не попадают ни на один экран', () => {
+    const tasks = [
+      task('открытая сегодня', '2026-09-12'),
+      doneTask('выполненная сегодня', '2026-09-12'),
+      doneTask('выполненная без срока'),
+    ]
+
+    expect(filterForView(tasks, 'all', NOW).map((t) => t.id)).toEqual(['открытая сегодня'])
+    expect(filterForView(tasks, 'today', NOW).map((t) => t.id)).toEqual(['открытая сегодня'])
   })
 })

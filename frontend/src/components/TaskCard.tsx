@@ -28,9 +28,8 @@ function TaskCard({ task, overdue, pending, onToggle }: TaskCardProps) {
   return (
     <div className="task-card">
       <div className="task-meta">
-        <span className={task.isDone ? 'status-tag done' : 'status-tag'}>
-          {task.isDone ? 'Выполнено' : 'В работе'}
-        </span>
+        {/* Второго состояния у тега нет: выполненная задача с экрана уходит. */}
+        <span className="status-tag">В работе</span>
         {due && <span className={overdue ? 'task-due overdue' : 'task-due'}>{due}</span>}
       </div>
 

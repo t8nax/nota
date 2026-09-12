@@ -7,10 +7,10 @@ import {
   type DueInput,
   type TaskResponse,
 } from './api'
-import ErrorToasts, { type ErrorToast } from './components/ErrorToasts'
 import NewTaskForm from './components/NewTaskForm'
 import Sidebar from './components/Sidebar'
 import TaskStream from './components/TaskStream'
+import Toasts, { type ToastData } from './components/Toasts'
 import { formatMonthTitle, formatTodaySubtitle } from './dates'
 import { filterForView, type ViewId } from './grouping'
 import { plural } from './plural'
@@ -31,7 +31,7 @@ function App() {
   const [submitting, setSubmitting] = useState(false)
   // Отметки переключаются независимо друг от друга, поэтому ждущих запросов может быть несколько.
   const [pending, setPending] = useState<ReadonlySet<string>>(new Set())
-  const [toasts, setToasts] = useState<readonly ErrorToast[]>([])
+  const [toasts, setToasts] = useState<readonly ToastData[]>([])
   const [view, setView] = useState<ViewId>('all')
   const lastToastId = useRef(0)
 
@@ -43,9 +43,13 @@ function App() {
     setToasts((current) => current.filter((toast) => toast.id !== id))
   }, [])
 
-  function showError(error: unknown) {
+  function showToast(toast: Omit<ToastData, 'id'>) {
     lastToastId.current += 1
-    setToasts((current) => [...current, { id: lastToastId.current, message: describe(error) }])
+    setToasts((current) => [...current, { ...toast, id: lastToastId.current }])
+  }
+
+  function showError(error: unknown) {
+    showToast({ message: describe(error), tone: 'error' })
   }
 
   useEffect(() => {
@@ -90,19 +94,29 @@ function App() {
     return true
   }
 
-  async function handleToggle(task: TaskResponse) {
+  async function applyDone(task: TaskResponse, isDone: boolean) {
     if (pending.has(task.id)) return
 
     setPending((current) => new Set(current).add(task.id))
 
     try {
-      const updated = await setTaskDone(task.id, !task.isDone)
+      const updated = await setTaskDone(task.id, isDone)
 
       setList((current) =>
         current.status === 'ready'
           ? { status: 'ready', tasks: current.tasks.map((t) => (t.id === updated.id ? updated : t)) }
           : current,
       )
+
+      // Выполненная задача уходит с экрана, и вернуть её можно только этим попапом:
+      // карточки с отметкой в ленте больше нет, а списка выполненных пока нет вовсе.
+      if (updated.isDone) {
+        showToast({
+          message: `Выполнено: ${updated.title}`,
+          tone: 'done',
+          action: { label: 'Вернуть', perform: () => void applyDone(updated, false) },
+        })
+      }
     } catch (error: unknown) {
       showError(error)
     } finally {
@@ -115,15 +129,17 @@ function App() {
     }
   }
 
+  function handleToggle(task: TaskResponse) {
+    void applyDone(task, !task.isDone)
+  }
+
   // Экран решает, какие задачи видны; счётчик и пустое состояние считают по ним же.
+  // Выполненных среди видимых не бывает, поэтому счётчик — это их число.
   const visible = filterForView(list.status === 'ready' ? list.tasks : [], view)
-  const remaining = visible.filter((task) => !task.isDone).length
   const countLine =
     visible.length === 0
       ? null
-      : remaining === 0
-        ? 'Все задачи выполнены'
-        : `Осталось ${remaining} ${plural(remaining, { one: 'задача', few: 'задачи', many: 'задач' })}`
+      : `Осталось ${visible.length} ${plural(visible.length, { one: 'задача', few: 'задачи', many: 'задач' })}`
   // Макет этого экрана не рисовал: день подписан в его стиле, но не по нему.
   const subtitle = [view === 'today' ? formatTodaySubtitle(openedAt) : null, countLine]
     .filter(Boolean)
@@ -154,7 +170,7 @@ function App() {
         )}
       </main>
 
-      <ErrorToasts toasts={toasts} onDismiss={dismissToast} />
+      <Toasts toasts={toasts} onDismiss={dismissToast} />
     </div>
   )
 }
