@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react'
 import type { DueInput } from '../api'
+import DuePicker from './DuePicker'
 
 interface NewTaskFormProps {
   submitting: boolean
@@ -47,29 +48,21 @@ function NewTaskForm({ submitting, onSubmit }: NewTaskFormProps) {
           aria-label="Заголовок новой задачи"
           disabled={submitting}
         />
-        <button type="submit" disabled={submitting || title.trim().length === 0}>
+        <button
+          type="submit"
+          className="new-task-submit"
+          disabled={submitting || title.trim().length === 0}
+        >
           {submitting ? 'Добавляю…' : 'Добавить'}
         </button>
       </div>
 
-      <div className="new-task-due">
-        <input
-          type="date"
-          className="due-field"
-          value={due.date}
-          onChange={(event) => handleDateChange(event.target.value)}
-          aria-label="Дата срока"
-          disabled={submitting}
-        />
-        <input
-          type="time"
-          className="due-field"
-          value={due.time}
-          onChange={(event) => setDue({ ...due, time: event.target.value })}
-          aria-label="Время срока"
-          disabled={submitting || due.date === ''}
-        />
-      </div>
+      <DuePicker
+        value={due}
+        disabled={submitting}
+        onDateChange={handleDateChange}
+        onTimeChange={(time) => setDue({ ...due, time })}
+      />
     </form>
   )
 }

@@ -8,6 +8,10 @@ const dayTitleFormat = new Intl.DateTimeFormat('ru-RU', {
   year: 'numeric',
 })
 const shortDayFormat = new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'long' })
+const fullDayFormat = new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' })
+
+/** Подписи столбцов календаря. Неделя русская — с понедельника. */
+export const WEEKDAY_LABELS = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс']
 
 function capitalize(value: string): string {
   return value.charAt(0).toUpperCase() + value.slice(1)
@@ -37,7 +41,7 @@ export function shiftDays(date: Date, days: number): Date {
 /** Разбирает «2026-09-11» в местный полдень.
  * Через `new Date(iso)` такая строка читается как полночь UTC и в западных
  * часовых поясах съезжает на день назад. */
-function parseDateKey(key: string): Date {
+export function parseDateKey(key: string): Date {
   const [year, month, day] = key.split('-').map(Number)
 
   return new Date(year, month - 1, day, 12)
@@ -56,4 +60,31 @@ export function formatShortDay(key: string): string {
 /** «18:00» — время срока. API отдаёт его с секундами, показывать их незачем. */
 export function formatTime(value: string): string {
   return value.slice(0, 5)
+}
+
+/** «20 сентября 2026 г.» — полная дата: ею подписан день в календаре попапа. */
+export function formatFullDay(key: string): string {
+  return fullDayFormat.format(parseDateKey(key))
+}
+
+/** Месяц дня «2026-09»: им календарь отличает свои дни от дней соседних месяцев. */
+export function monthKey(date: Date): string {
+  return dateKey(date).slice(0, 7)
+}
+
+/** Месяц, сдвинутый на несколько месяцев от заданного. */
+export function shiftMonths(date: Date, months: number): Date {
+  // Полдень первого числа: со дня в конце месяца сдвиг переносил бы на месяц дальше.
+  return new Date(date.getFullYear(), date.getMonth() + months, 1, 12)
+}
+
+/** Сетка месяца: шесть недель ключей дней, начиная с понедельника.
+ * Недель всегда шесть, чтобы попап не менял высоту при переключении месяца. */
+export function monthGrid(anchor: Date): string[] {
+  const first = new Date(anchor.getFullYear(), anchor.getMonth(), 1, 12)
+  // getDay() считает неделю с воскресенья, а календарь начинается с понедельника.
+  const lead = (first.getDay() + 6) % 7
+  const start = shiftDays(first, -lead)
+
+  return Array.from({ length: 42 }, (_, offset) => dateKey(shiftDays(start, offset)))
 }

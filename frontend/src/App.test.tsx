@@ -30,6 +30,17 @@ function jsonResponse(body: unknown, status = 200) {
   })
 }
 
+/** Срок задаётся своими попапами: чип открывает попап, выбор в нём закрывает. */
+async function pickDate(day: string | RegExp) {
+  await userEvent.click(screen.getByLabelText('Дата срока'))
+  await userEvent.click(screen.getByRole('button', { name: day }))
+}
+
+async function pickTime(slot: string) {
+  await userEvent.click(screen.getByLabelText('Время срока'))
+  await userEvent.click(screen.getByRole('button', { name: slot }))
+}
+
 beforeEach(() => {
   vi.useFakeTimers({ shouldAdvanceTime: true })
   vi.setSystemTime(new Date(2026, 8, 12, 10, 0))
@@ -70,8 +81,8 @@ describe('форма добавления задачи', () => {
     await screen.findByText('Задач пока нет.')
 
     await userEvent.type(screen.getByLabelText('Заголовок новой задачи'), 'Позвонить маме')
-    await userEvent.type(screen.getByLabelText('Дата срока'), '2026-09-20')
-    await userEvent.type(screen.getByLabelText('Время срока'), '18:00')
+    await pickDate(/20 сентября 2026/)
+    await pickTime('18:00')
     await userEvent.click(screen.getByRole('button', { name: 'Добавить' }))
 
     await screen.findByText('Позвонить маме')
@@ -112,7 +123,7 @@ describe('форма добавления задачи', () => {
 
     expect(screen.getByLabelText('Время срока')).toBeDisabled()
 
-    await userEvent.type(screen.getByLabelText('Дата срока'), '2026-09-20')
+    await pickDate(/20 сентября 2026/)
 
     expect(screen.getByLabelText('Время срока')).toBeEnabled()
   })
@@ -128,11 +139,11 @@ describe('форма добавления задачи', () => {
     await screen.findByText('Задач пока нет.')
 
     await userEvent.type(screen.getByLabelText('Заголовок новой задачи'), 'Сдать отчёт')
-    await userEvent.type(screen.getByLabelText('Дата срока'), '2026-09-20')
+    await pickDate(/20 сентября 2026/)
     await userEvent.click(screen.getByRole('button', { name: 'Добавить' }))
 
     await screen.findByText('Сдать отчёт')
-    expect(screen.getByLabelText('Дата срока')).toHaveValue('')
+    expect(screen.getByLabelText('Дата срока')).toHaveTextContent('Срок')
   })
 
   it('показывает сообщение об ошибке от сервера и не добавляет задачу', async () => {
@@ -162,6 +173,72 @@ describe('форма добавления задачи', () => {
 
     await userEvent.type(screen.getByLabelText('Заголовок новой задачи'), '   ')
     expect(screen.getByRole('button', { name: 'Добавить' })).toBeDisabled()
+  })
+})
+
+describe('попап срока', () => {
+  beforeEach(() => {
+    vi.mocked(fetch).mockResolvedValue(jsonResponse([]))
+  })
+
+  it('ставит день кнопкой «Завтра»', async () => {
+    render(<App />)
+    await screen.findByText('Задач пока нет.')
+
+    await userEvent.click(screen.getByLabelText('Дата срока'))
+    await userEvent.click(screen.getByRole('button', { name: 'Завтра' }))
+
+    expect(screen.getByLabelText('Дата срока')).toHaveTextContent('13 сентября')
+  })
+
+  it('переключает показанный месяц, не меняя выбранный день', async () => {
+    render(<App />)
+    await screen.findByText('Задач пока нет.')
+
+    await pickDate(/20 сентября 2026/)
+    await userEvent.click(screen.getByLabelText('Дата срока'))
+    await userEvent.click(screen.getByRole('button', { name: 'Следующий месяц' }))
+
+    expect(screen.getByText(/Октябрь 2026/)).toBeInTheDocument()
+    expect(screen.getByLabelText('Дата срока')).toHaveTextContent('20 сентября')
+  })
+
+  it('снятие дня снимает и время', async () => {
+    render(<App />)
+    await screen.findByText('Задач пока нет.')
+
+    await pickDate(/20 сентября 2026/)
+    await pickTime('18:00')
+
+    await userEvent.click(screen.getByLabelText('Дата срока'))
+    await userEvent.click(screen.getByRole('button', { name: 'Убрать' }))
+
+    expect(screen.getByLabelText('Дата срока')).toHaveTextContent('Срок')
+    expect(screen.getByLabelText('Время срока')).toHaveTextContent('Время')
+    expect(screen.getByLabelText('Время срока')).toBeDisabled()
+  })
+
+  it('принимает время, которого нет среди получасовых слотов', async () => {
+    render(<App />)
+    await screen.findByText('Задач пока нет.')
+
+    await pickDate(/20 сентября 2026/)
+    await userEvent.click(screen.getByLabelText('Время срока'))
+    await userEvent.type(screen.getByLabelText('Точное время'), '18:15')
+
+    expect(screen.getByLabelText('Время срока')).toHaveTextContent('18:15')
+  })
+
+  it('закрывается по Escape', async () => {
+    render(<App />)
+    await screen.findByText('Задач пока нет.')
+
+    await userEvent.click(screen.getByLabelText('Дата срока'))
+    expect(screen.getByRole('dialog', { name: 'Выбор даты срока' })).toBeInTheDocument()
+
+    await userEvent.keyboard('{Escape}')
+
+    expect(screen.queryByRole('dialog')).toBeNull()
   })
 })
 

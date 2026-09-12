@@ -2,6 +2,7 @@
 :root {
   --bg-app: #0d0d0d;
   --bg-sidebar: #121212;
+  --bg-card: #181818;
   --bg-input: #1f1f1f;
 
   --accent-primary: #ffffff;
@@ -18,6 +19,8 @@
   --tag-green: #30d158;
   --tag-red: #ff453a;
 
+  --radius-sm: 8px;
+  --radius-lg: 20px;
   --radius-pill: 999px;
 
   color-scheme: dark;
