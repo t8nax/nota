@@ -197,7 +197,19 @@ function ProjectNav({ projects, view, onSelect, onCreate, onRename, onDelete }: 
         )
       })}
 
-      {mode.kind === 'creating' && renderNameField('Название проекта')}
+      {/* Второй вход в то же поле — под списком: когда проектов много, тянуться
+          к плюсу в заголовке далеко, а курсор и так внизу списка. */}
+      {mode.kind === 'creating' ? (
+        renderNameField('Название проекта')
+      ) : (
+        <button type="button" className="nav-item nav-item-add" onClick={startCreating}>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
+            <line x1="12" y1="5" x2="12" y2="19" />
+            <line x1="5" y1="12" x2="19" y2="12" />
+          </svg>
+          <span>Добавить проект</span>
+        </button>
+      )}
     </nav>
   )
 }

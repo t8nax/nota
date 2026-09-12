@@ -93,3 +93,20 @@ test('чип проекта у задачи без проекта виден т�
 
   await expect(slot).toHaveCSS('opacity', '1')
 })
+
+test('пункт заведения проекта стоит под списком', async ({ page }) => {
+  await stubProjectList(page, projects)
+  await stubTaskList(page)
+  await page.goto('/')
+
+  const lastProject = (await page.locator('.project-row').last().boundingBox())!
+  const add = (await page.getByText('Добавить проект').boundingBox())!
+
+  expect(add.y).toBeGreaterThan(lastProject.y)
+
+  // Оба входа ведут к одному полю, и оно открывается там же, под списком.
+  await page.getByText('Добавить проект').click()
+
+  const field = (await page.getByLabel('Название проекта').boundingBox())!
+  expect(field.y).toBeGreaterThan(lastProject.y)
+})

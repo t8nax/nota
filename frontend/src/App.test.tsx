@@ -775,6 +775,25 @@ describe('ведение проектов', () => {
     expect(screen.getByLabelText('Название проекта')).toHaveValue('Дом')
   })
 
+  it('заводит проект пунктом под списком', async () => {
+    const home = projectJson('Дом')
+    const created = projectJson('Работа')
+    stubFetch([jsonResponse([]), jsonResponse(created, 201)], [home])
+
+    render(<App />)
+    await screen.findByRole('button', { name: 'Дом' })
+
+    // Пункт стоит под списком: до плюса в заголовке тянуться далеко.
+    await userEvent.click(screen.getByText('Добавить проект'))
+    await userEvent.type(screen.getByLabelText('Название проекта'), 'Работа')
+    await userEvent.click(screen.getByRole('button', { name: 'Готово' }))
+
+    expect(await screen.findByRole('button', { name: 'Работа' })).toBeInTheDocument()
+
+    const [postCall] = callsWith('POST')
+    expect(postCall[0]).toBe('/api/projects')
+  })
+
   it('уход фокуса закрывает поле ввода имени', async () => {
     stubFetch([jsonResponse([])])
 

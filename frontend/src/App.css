@@ -115,6 +115,15 @@
   stroke-width: 2.6px;
 }
 
+/* Пункт заведения проекта: тот же ряд колонки, но приглушённый — он не экран. */
+.nav-item-add {
+  color: var(--text-tertiary);
+}
+
+.nav-item-add:hover {
+  color: var(--text-main);
+}
+
 /* Строка проекта: кнопка экрана и кнопка меню в одном ряду. */
 .project-row {
   position: relative;
