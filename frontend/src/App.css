@@ -82,46 +82,10 @@
   flex: none;
 }
 
-.nav-group-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-}
-
-.nav-group-add {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 24px;
-  height: 24px;
-  flex: none;
-  margin-bottom: 12px;
-  border: none;
-  border-radius: 8px;
-  background: transparent;
-  color: var(--text-secondary);
-  cursor: pointer;
-}
-
-.nav-group-add:hover {
-  background: rgba(255, 255, 255, 0.05);
-  color: var(--text-main);
-}
-
-.nav-group-add svg {
-  width: 16px;
-  height: 16px;
-  stroke-width: 2.6px;
-}
-
-/* Пункт заведения проекта: тот же ряд колонки, но приглушённый — он не экран. */
+/* Пункт заведения проекта: единственный вход, поэтому написан тоном пунктов
+   колонки, а не приглушённым. */
 .nav-item-add {
-  color: var(--text-tertiary);
-}
-
-.nav-item-add:hover {
-  color: var(--text-main);
+  color: var(--text-secondary);
 }
 
 /* Строка проекта: кнопка экрана и кнопка меню в одном ряду. */

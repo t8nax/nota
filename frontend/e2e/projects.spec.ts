@@ -55,14 +55,15 @@ test('меню проекта открывается и остаётся в пр
 const SECONDARY = 'rgb(142, 142, 147)'
 const TERTIARY = 'rgb(72, 72, 74)'
 
-test('плюс в заголовке проектов написан читаемым тоном', async ({ page }) => {
+test('пункт заведения проекта написан читаемым тоном', async ({ page }) => {
   await stubProjectList(page, projects)
   await stubTaskList(page)
   await page.goto('/')
 
-  // Приглушённым тоном плюс на тёмном фоне почти не виден.
-  await expect(page.getByLabel('Добавить проект')).toHaveCSS('color', SECONDARY)
-  await expect(page.getByLabel('Добавить проект')).not.toHaveCSS('color', TERTIARY)
+  // Приглушённым тоном он на тёмном фоне почти не виден, а вход в заведение один.
+  const add = page.getByText('Добавить проект')
+  await expect(add).toHaveCSS('color', SECONDARY)
+  await expect(add).not.toHaveCSS('color', TERTIARY)
 })
 
 test('кнопка «Готово» вровень с полем ввода имени', async ({ page }) => {
@@ -70,7 +71,7 @@ test('кнопка «Готово» вровень с полем ввода им
   await stubTaskList(page)
   await page.goto('/')
 
-  await page.getByLabel('Добавить проект').click()
+  await page.getByText('Добавить проект').click()
 
   const field = (await page.getByLabel('Название проекта').boundingBox())!
   const submit = (await page.getByRole('button', { name: 'Готово' }).boundingBox())!

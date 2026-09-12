@@ -99,20 +99,7 @@ function ProjectNav({ projects, view, onSelect, onCreate, onRename, onDelete }: 
 
   return (
     <nav aria-label="Проекты" ref={root}>
-      <div className="nav-group-head">
-        <p className="nav-group-label">Проекты</p>
-        <button
-          type="button"
-          className="nav-group-add"
-          aria-label="Добавить проект"
-          onClick={startCreating}
-        >
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
-            <line x1="12" y1="5" x2="12" y2="19" />
-            <line x1="5" y1="12" x2="19" y2="12" />
-          </svg>
-        </button>
-      </div>
+      <p className="nav-group-label">Проекты</p>
 
       {projects.length === 0 && mode.kind !== 'creating' && (
         <p className="nav-empty">Проектов пока нет</p>
@@ -197,8 +184,8 @@ function ProjectNav({ projects, view, onSelect, onCreate, onRename, onDelete }: 
         )
       })}
 
-      {/* Второй вход в то же поле — под списком: когда проектов много, тянуться
-          к плюсу в заголовке далеко, а курсор и так внизу списка. */}
+      {/* Единственный вход в поле ввода имени, и стоит он под списком: когда
+          проектов много, курсор и так внизу, а не у заголовка раздела. */}
       {mode.kind === 'creating' ? (
         renderNameField('Название проекта')
       ) : (

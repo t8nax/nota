@@ -734,7 +734,7 @@ describe('экран проекта', () => {
 describe('ведение проектов', () => {
   /** Заводит проект через раздел левой колонки. */
   async function addProject(name: string) {
-    await userEvent.click(screen.getByLabelText('Добавить проект'))
+    await userEvent.click(screen.getByText('Добавить проект'))
     await userEvent.type(screen.getByLabelText('Название проекта'), name)
     await userEvent.click(screen.getByRole('button', { name: 'Готово' }))
   }
@@ -800,7 +800,7 @@ describe('ведение проектов', () => {
     render(<App />)
     await screen.findByText('Проектов пока нет')
 
-    await userEvent.click(screen.getByLabelText('Добавить проект'))
+    await userEvent.click(screen.getByText('Добавить проект'))
     await userEvent.type(screen.getByLabelText('Название проекта'), 'Дом')
 
     await userEvent.click(screen.getByRole('button', { name: 'Все задачи' }))
