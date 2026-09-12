@@ -31,6 +31,16 @@ function jsonResponse(body: unknown, status = 200) {
   })
 }
 
+/** Ответ, которым тест управляет вручную: нужен, чтобы задать порядок возвратов. */
+function deferredResponse() {
+  let resolve!: (response: Response) => void
+  const promise = new Promise<Response>((settle) => {
+    resolve = settle
+  })
+
+  return { promise, resolve }
+}
+
 /** Срок задаётся своими попапами: чип открывает попап, выбор в нём закрывает. */
 async function pickDate(day: string | RegExp) {
   await userEvent.click(screen.getByLabelText('Дата срока'))
@@ -176,6 +186,29 @@ describe('форма добавления задачи', () => {
     await userEvent.type(screen.getByLabelText('Заголовок новой задачи'), '   ')
     expect(screen.getByRole('button', { name: 'Добавить' })).toBeDisabled()
   })
+
+  it('не теряет созданную задачу, когда ответ первой загрузки приходит позже', async () => {
+    const created = taskJson('Купить хлеб')
+    const firstLoad = deferredResponse()
+    const fetchMock = vi.mocked(fetch)
+    fetchMock.mockReturnValueOnce(firstLoad.promise)
+    fetchMock.mockResolvedValueOnce(jsonResponse(created, 201))
+    fetchMock.mockResolvedValueOnce(jsonResponse([created]))
+
+    render(<App />)
+
+    await userEvent.type(screen.getByLabelText('Заголовок новой задачи'), 'Купить хлеб')
+    await userEvent.click(screen.getByRole('button', { name: 'Добавить' }))
+    expect(await screen.findByText('Купить хлеб')).toBeInTheDocument()
+
+    // Первая загрузка возвращается последней и знает список таким, каким он был до создания.
+    await act(async () => {
+      firstLoad.resolve(jsonResponse([]))
+    })
+
+    expect(screen.getByText('Купить хлеб')).toBeInTheDocument()
+  })
+
 })
 
 describe('попап срока', () => {

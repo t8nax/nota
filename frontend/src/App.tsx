@@ -34,10 +34,21 @@ function App() {
   const [toasts, setToasts] = useState<readonly ToastData[]>([])
   const [view, setView] = useState<ViewId>('all')
   const lastToastId = useRef(0)
+  // Список приходит от сервера целиком, и ответ запроса, ушедшего раньше, может
+  // вернуться позже: применить его значило бы показать ленту такой, какой она была
+  // до создания задачи. Поэтому применяется только ответ последнего запроса.
+  const lastListRequest = useRef(0)
 
   // Один момент времени на всю шапку: заголовок и подпись дня не должны разъехаться.
   const openedAt = useMemo(() => new Date(), [])
   const monthTitle = useMemo(() => formatMonthTitle(openedAt), [openedAt])
+
+  /** Отмечает уходящий запрос списка; вернёт проверку «этот ответ ещё свежий». */
+  const startListRequest = useCallback(() => {
+    const request = (lastListRequest.current += 1)
+
+    return () => request === lastListRequest.current
+  }, [])
 
   const dismissToast = useCallback((id: number) => {
     setToasts((current) => current.filter((toast) => toast.id !== id))
@@ -53,22 +64,18 @@ function App() {
   }
 
   useEffect(() => {
-    let cancelled = false
+    const isFresh = startListRequest()
 
     fetchTasks()
       .then((tasks) => {
-        if (!cancelled) setList({ status: 'ready', tasks })
+        if (isFresh()) setList({ status: 'ready', tasks })
       })
       .catch((error: unknown) => {
         // Первая загрузка оставляет экран пустым, поэтому её отказ живёт в теле ленты:
         // исчезнувший попап оставил бы человека перед пустотой без объяснения.
-        if (!cancelled) setList({ status: 'error', message: describe(error) })
+        if (isFresh()) setList({ status: 'error', message: describe(error) })
       })
-
-    return () => {
-      cancelled = true
-    }
-  }, [])
+  }, [startListRequest])
 
   async function handleCreate(title: string, due: DueInput): Promise<boolean> {
     setSubmitting(true)
@@ -85,10 +92,14 @@ function App() {
 
     // Место новой задачи в ленте задаёт срок, а порядок считает сервер, поэтому
     // список перечитывается целиком, а не достраивается на клиенте.
+    const isFresh = startListRequest()
+
     try {
-      setList({ status: 'ready', tasks: await fetchTasks() })
+      const tasks = await fetchTasks()
+
+      if (isFresh()) setList({ status: 'ready', tasks })
     } catch (error: unknown) {
-      showError(error)
+      if (isFresh()) showError(error)
     }
 
     return true
