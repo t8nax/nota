@@ -100,7 +100,7 @@
   border: none;
   border-radius: 8px;
   background: transparent;
-  color: var(--text-tertiary);
+  color: var(--text-secondary);
   cursor: pointer;
 }
 
@@ -204,7 +204,8 @@
 
 .project-form {
   display: flex;
-  align-items: center;
+  /* Кнопка тянется по высоте поля: иначе она ниже его и строка выглядит сломанной. */
+  align-items: stretch;
   gap: 6px;
   margin-bottom: 4px;
 }
@@ -228,7 +229,7 @@
 
 .project-form-submit {
   flex: none;
-  padding: 8px 12px;
+  padding: 0 14px;
   border: none;
   border-radius: var(--radius-pill);
   background: var(--accent-primary);
@@ -242,6 +243,18 @@
 .project-form-submit:disabled {
   cursor: not-allowed;
   opacity: 0.3;
+}
+
+/* У задачи без проекта чип пустой, и на экране он лишний: место занимает, а
+   сказать ему нечего. Появляется, когда на карточку навели или вошли в неё
+   с клавиатуры, — иначе положить такую задачу в проект было бы нечем. */
+.task-card .project-slot-empty {
+  opacity: 0;
+}
+
+.task-card:hover .project-slot-empty,
+.task-card:focus-within .project-slot-empty {
+  opacity: 1;
 }
 
 /* Точка проекта — знак макета: цвета у проекта нет, поэтому она одна на всех. */

@@ -775,6 +775,21 @@ describe('ведение проектов', () => {
     expect(screen.getByLabelText('Название проекта')).toHaveValue('Дом')
   })
 
+  it('уход фокуса закрывает поле ввода имени', async () => {
+    stubFetch([jsonResponse([])])
+
+    render(<App />)
+    await screen.findByText('Проектов пока нет')
+
+    await userEvent.click(screen.getByLabelText('Добавить проект'))
+    await userEvent.type(screen.getByLabelText('Название проекта'), 'Дом')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Все задачи' }))
+
+    expect(screen.queryByLabelText('Название проекта')).toBeNull()
+    expect(callsWith('POST')).toHaveLength(0)
+  })
+
   it('переименовывает проект', async () => {
     const home = projectJson('Дом')
     stubFetch([jsonResponse([]), jsonResponse({ ...home, name: 'Дача' })], [home])
@@ -806,7 +821,7 @@ describe('ведение проектов', () => {
     await openMenu('Дом')
     await userEvent.click(screen.getByRole('menuitem', { name: 'Удалить' }))
 
-    expect(screen.getByText('Удалить проект «Дом» вместе с задачами?')).toBeInTheDocument()
+    expect(screen.getByText('Удалить проект «Дом»?')).toBeInTheDocument()
 
     await userEvent.click(screen.getByRole('button', { name: 'Отмена' }))
 

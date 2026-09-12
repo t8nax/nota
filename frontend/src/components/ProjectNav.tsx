@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type FocusEvent, type FormEvent } from 'react'
 import type { ProjectResponse } from '../api'
 import type { View } from '../grouping'
 
@@ -72,9 +72,14 @@ function ProjectNav({ projects, view, onSelect, onCreate, onRename, onDelete }: 
     if (done) setMode({ kind: 'idle' })
   }
 
+  /** Ввод закрывается, как только фокус ушёл из него: иначе отменить его нечем. */
+  function handleBlur(event: FocusEvent<HTMLFormElement>) {
+    if (!event.currentTarget.contains(event.relatedTarget)) setMode({ kind: 'idle' })
+  }
+
   function renderNameField(label: string) {
     return (
-      <form className="project-form" onSubmit={submitName}>
+      <form className="project-form" onSubmit={submitName} onBlur={handleBlur}>
         <input
           className="project-input"
           value={name}
@@ -169,8 +174,8 @@ function ProjectNav({ projects, view, onSelect, onCreate, onRename, onDelete }: 
 
             {mode.kind === 'deleting' && mode.id === project.id && (
               <div className="project-confirm" role="dialog" aria-label="Удаление проекта">
-                {/* Удаление уносит задачи проекта, и отменить его нечем: спрашиваем до, а не после. */}
-                <p>Удалить проект «{project.name}» вместе с задачами?</p>
+                {/* Отменить удаление нечем, поэтому спрашиваем до, а не после. */}
+                <p>Удалить проект «{project.name}»?</p>
                 <div className="project-confirm-actions">
                   <button
                     type="button"

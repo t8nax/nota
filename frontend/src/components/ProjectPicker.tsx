@@ -47,8 +47,12 @@ function ProjectPicker({ projects, value, label, disabled = false, onPick }: Pro
     setOpened(false)
   }
 
+  // Пустой чип прячется стилями карточки: показывать «Без проекта» на каждой
+  // задаче без проекта — шум, а место под чип всё равно нужно.
+  const slotClass = current ? 'due-slot' : 'due-slot project-slot-empty'
+
   return (
-    <div className="due-slot" ref={root}>
+    <div className={slotClass} ref={root}>
       <button
         type="button"
         className={current ? 'due-chip filled' : 'due-chip'}
