@@ -1,0 +1,38 @@
+import type { Page } from '@playwright/test'
+
+/**
+ * Задачи без срока: лента режется по дням, и «Без срока» — единственная группа,
+ * которая не зависит от того, какой сегодня день.
+ */
+export const undatedTasks = [
+  {
+    id: '11111111-1111-1111-1111-111111111111',
+    title: 'Забрать посылку',
+    isDone: false,
+    createdAt: '2026-09-12T09:00:00Z',
+    dueDate: null,
+    dueTime: null,
+  },
+  {
+    id: '22222222-2222-2222-2222-222222222222',
+    title: 'Позвонить маме',
+    isDone: false,
+    createdAt: '2026-09-12T09:05:00Z',
+    dueDate: null,
+    dueTime: null,
+  },
+]
+
+/** Ответ на список задач: браузерный прогон идёт без бэкенда и без базы. */
+export async function stubTaskList(page: Page, tasks = undatedTasks) {
+  await page.route('**/api/tasks', async (route) => {
+    await route.fulfill({ json: tasks })
+  })
+}
+
+/** Отметка выполнения отказывает: так на экране появляется попап ошибки. */
+export async function stubFailingToggle(page: Page) {
+  await page.route('**/api/tasks/*', async (route) => {
+    await route.fulfill({ status: 500, json: {} })
+  })
+}

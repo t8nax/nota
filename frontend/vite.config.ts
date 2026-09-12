@@ -9,6 +9,9 @@ export default defineConfig({
     environment: 'jsdom',
     globals: true,
     setupFiles: ['./vitest.setup.ts'],
+    // Браузерные тесты лежат рядом и тоже называются `.spec`, но их гоняет
+    // Playwright: в jsdom они не работают.
+    exclude: ['**/node_modules/**', '**/dist/**', 'e2e/**'],
   },
   server: {
     port: 5173,
