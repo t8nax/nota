@@ -125,7 +125,9 @@
   display: flex;
   align-items: flex-start;
   gap: 12px;
-  width: 320px;
+  /* Ширина фиксированная, но на узком экране попап ужимается по нему, а не тянется
+     во всю ленту: сообщение об ошибке — не полоса через весь экран. */
+  width: min(320px, calc(100vw - 48px));
   padding: 16px;
   background: var(--bg-card);
   border: 1px solid var(--divider);
@@ -663,10 +665,9 @@
   .toast-stack {
     right: 16px;
     bottom: 16px;
-    left: 16px;
   }
 
   .toast {
-    width: auto;
+    width: min(320px, calc(100vw - 32px));
   }
 }
