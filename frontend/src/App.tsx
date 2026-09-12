@@ -11,7 +11,8 @@ import ErrorToasts, { type ErrorToast } from './components/ErrorToasts'
 import NewTaskForm from './components/NewTaskForm'
 import Sidebar from './components/Sidebar'
 import TaskStream from './components/TaskStream'
-import { formatMonthTitle } from './dates'
+import { formatMonthTitle, formatTodaySubtitle } from './dates'
+import { filterForView, type ViewId } from './grouping'
 import { plural } from './plural'
 import './App.css'
 
@@ -31,9 +32,12 @@ function App() {
   // Отметки переключаются независимо друг от друга, поэтому ждущих запросов может быть несколько.
   const [pending, setPending] = useState<ReadonlySet<string>>(new Set())
   const [toasts, setToasts] = useState<readonly ErrorToast[]>([])
+  const [view, setView] = useState<ViewId>('all')
   const lastToastId = useRef(0)
 
-  const monthTitle = useMemo(() => formatMonthTitle(new Date()), [])
+  // Один момент времени на всю шапку: заголовок и подпись дня не должны разъехаться.
+  const openedAt = useMemo(() => new Date(), [])
+  const monthTitle = useMemo(() => formatMonthTitle(openedAt), [openedAt])
 
   const dismissToast = useCallback((id: number) => {
     setToasts((current) => current.filter((toast) => toast.id !== id))
@@ -111,23 +115,28 @@ function App() {
     }
   }
 
-  const tasks = list.status === 'ready' ? list.tasks : []
-  const remaining = tasks.filter((task) => !task.isDone).length
+  // Экран решает, какие задачи видны; счётчик и пустое состояние считают по ним же.
+  const visible = filterForView(list.status === 'ready' ? list.tasks : [], view)
+  const remaining = visible.filter((task) => !task.isDone).length
+  const countLine =
+    visible.length === 0
+      ? null
+      : remaining === 0
+        ? 'Все задачи выполнены'
+        : `Осталось ${remaining} ${plural(remaining, { one: 'задача', few: 'задачи', many: 'задач' })}`
+  // Макет этого экрана не рисовал: день подписан в его стиле, но не по нему.
+  const subtitle = [view === 'today' ? formatTodaySubtitle(openedAt) : null, countLine]
+    .filter(Boolean)
+    .join(' · ')
 
   return (
     <div className="layout">
-      <Sidebar />
+      <Sidebar view={view} onSelect={setView} />
 
       <main className="main-stream">
         <div className="header-area">
-          <h1 className="current-month">{monthTitle}</h1>
-          {tasks.length > 0 && (
-            <p className="header-subtitle">
-              {remaining === 0
-                ? 'Все задачи выполнены'
-                : `Осталось ${remaining} ${plural(remaining, { one: 'задача', few: 'задачи', many: 'задач' })}`}
-            </p>
-          )}
+          <h1 className="current-month">{view === 'today' ? 'Сегодня' : monthTitle}</h1>
+          {subtitle.length > 0 && <p className="header-subtitle">{subtitle}</p>}
         </div>
 
         <NewTaskForm submitting={submitting} onSubmit={handleCreate} />
@@ -136,10 +145,12 @@ function App() {
 
         {list.status === 'error' && <p className="error">{list.message}</p>}
 
-        {list.status === 'ready' && list.tasks.length === 0 && <p className="hint">Задач пока нет.</p>}
+        {list.status === 'ready' && visible.length === 0 && (
+          <p className="hint">{view === 'today' ? 'На сегодня задач нет.' : 'Задач пока нет.'}</p>
+        )}
 
-        {list.status === 'ready' && list.tasks.length > 0 && (
-          <TaskStream tasks={list.tasks} pending={pending} onToggle={handleToggle} />
+        {list.status === 'ready' && visible.length > 0 && (
+          <TaskStream tasks={visible} pending={pending} onToggle={handleToggle} />
         )}
       </main>
 

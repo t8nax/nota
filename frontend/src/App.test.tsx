@@ -315,7 +315,7 @@ describe('отметка выполнения', () => {
 
     await waitFor(() => expect(screen.getByRole('checkbox', { name: 'Оплатить счёт' })).toBeChecked())
     expect(screen.getByText('12:00')).toBeInTheDocument()
-    expect(screen.getByText('Сегодня')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Сегодня' })).toBeInTheDocument()
   })
 
   it('показывает ошибку сервера и оставляет отметку прежней', async () => {
@@ -348,7 +348,7 @@ describe('лента задач', () => {
     render(<App />)
 
     expect(await screen.findByText('Просрочено')).toBeInTheDocument()
-    expect(screen.getByText('Сегодня')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Сегодня' })).toBeInTheDocument()
     expect(screen.getByText('Завтра')).toBeInTheDocument()
     expect(screen.getByText('Без срока')).toBeInTheDocument()
     expect(screen.getByText('09:30')).toBeInTheDocument()
@@ -462,5 +462,79 @@ describe('попап ошибки', () => {
 
     expect(await screen.findByText('Произошла ошибка. Попробуйте позже.')).toBeInTheDocument()
     expect(screen.queryByText(/Failed to fetch/)).toBeNull()
+  })
+})
+
+describe('раздел «Сегодня»', () => {
+  /** Список, в котором есть по задаче каждого вида срока. */
+  function mixedTasks() {
+    return [
+      taskJson('Просроченная', false, '2026-09-10'),
+      taskJson('Сегодняшняя', false, TODAY, '09:30:00'),
+      taskJson('Завтрашняя', false, '2026-09-13'),
+      taskJson('Бессрочная'),
+    ]
+  }
+
+  async function openToday() {
+    await userEvent.click(screen.getByRole('button', { name: 'Сегодня' }))
+  }
+
+  it('оставляет просроченное и сегодняшнее, пряча остальное', async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(jsonResponse(mixedTasks()))
+
+    render(<App />)
+    await screen.findByText('Завтрашняя')
+    await openToday()
+
+    expect(screen.getByText('Просроченная')).toBeInTheDocument()
+    expect(screen.getByText('Сегодняшняя')).toBeInTheDocument()
+    expect(screen.queryByText('Завтрашняя')).toBeNull()
+    expect(screen.queryByText('Бессрочная')).toBeNull()
+  })
+
+  it('подписывает экран днём и остатком видимых задач', async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(jsonResponse(mixedTasks()))
+
+    render(<App />)
+    await screen.findByText('Завтрашняя')
+    await openToday()
+
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Сегодня')
+    expect(screen.getByText('Суббота, 12 сентября · Осталось 2 задачи')).toBeInTheDocument()
+  })
+
+  it('без задач на сегодня говорит об этом, а не молчит', async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(
+      jsonResponse([taskJson('Завтрашняя', false, '2026-09-13'), taskJson('Бессрочная')]),
+    )
+
+    render(<App />)
+    await screen.findByText('Завтрашняя')
+    await openToday()
+
+    expect(screen.getByText('На сегодня задач нет.')).toBeInTheDocument()
+  })
+
+  it('возврат к «Всем задачам» показывает список целиком', async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(jsonResponse(mixedTasks()))
+
+    render(<App />)
+    await screen.findByText('Завтрашняя')
+    await openToday()
+    await userEvent.click(screen.getByRole('button', { name: 'Все задачи' }))
+
+    expect(screen.getByText('Бессрочная')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Сентябрь 2026')
+  })
+
+  it('отмечает открытый раздел в левой колонке', async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(jsonResponse([]))
+
+    render(<App />)
+    await openToday()
+
+    expect(screen.getByRole('button', { name: 'Сегодня' })).toHaveAttribute('aria-current', 'page')
+    expect(screen.getByRole('button', { name: 'Все задачи' })).not.toHaveAttribute('aria-current')
   })
 })

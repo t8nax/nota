@@ -54,3 +54,19 @@ export function groupByDue(tasks: TaskResponse[], now: Date = new Date()): DueGr
 
   return groups
 }
+
+/** Экран ленты: «Все задачи» показывают весь список, «Сегодня» — его часть. */
+export type ViewId = 'all' | 'today'
+
+/**
+ * Оставляет задачи, которые попадают на экран. Порядок не меняется: его считает
+ * сервер. Просроченное входит в «Сегодня» — иначе его видно только во всём списке,
+ * и оно теряется.
+ */
+export function filterForView(tasks: TaskResponse[], view: ViewId, now: Date = new Date()): TaskResponse[] {
+  if (view === 'all') return tasks
+
+  const today = dateKey(now)
+
+  return tasks.filter((task) => task.dueDate !== null && task.dueDate <= today)
+}

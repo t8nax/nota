@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { groupByDue } from './grouping'
+import { filterForView, groupByDue } from './grouping'
 import type { TaskResponse } from './api'
 
 const NOW = new Date(2026, 8, 12, 10, 0)
@@ -48,5 +48,24 @@ describe('группировка ленты по сроку', () => {
 
   it('на пустом списке не даёт групп', () => {
     expect(groupByDue([], NOW)).toEqual([])
+  })
+})
+
+describe('фильтр экрана', () => {
+  it('на экране «Сегодня» оставляет просроченное и сегодняшнее', () => {
+    const tasks = [
+      task('вчера', '2026-09-11'),
+      task('сегодня', '2026-09-12'),
+      task('завтра', '2026-09-13'),
+      task('без срока'),
+    ]
+
+    expect(filterForView(tasks, 'today', NOW).map((t) => t.id)).toEqual(['вчера', 'сегодня'])
+  })
+
+  it('на экране «Все задачи» отдаёт список как есть', () => {
+    const tasks = [task('завтра', '2026-09-13'), task('без срока')]
+
+    expect(filterForView(tasks, 'all', NOW)).toBe(tasks)
   })
 })
