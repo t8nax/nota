@@ -10,6 +10,7 @@ export const undatedTasks = [
     title: 'Забрать посылку',
     isDone: false,
     createdAt: '2026-09-12T09:00:00Z',
+    projectId: null,
     dueDate: null,
     dueTime: null,
   },
@@ -18,10 +19,28 @@ export const undatedTasks = [
     title: 'Позвонить маме',
     isDone: false,
     createdAt: '2026-09-12T09:05:00Z',
+    projectId: null,
     dueDate: null,
     dueTime: null,
   },
 ]
+
+/** Проекты для проверок левой колонки: имена разной длины, включая заведомо длинное. */
+export const projects = [
+  { id: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', name: 'Дом', createdAt: '2026-09-12T08:00:00Z' },
+  {
+    id: 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb',
+    name: 'Ремонт квартиры на Профсоюзной и всё вокруг него',
+    createdAt: '2026-09-12T08:10:00Z',
+  },
+]
+
+/** Ответ на список проектов: без него запрос ушёл бы на несуществующий бэкенд. */
+export async function stubProjectList(page: Page, list: typeof projects | [] = []) {
+  await page.route('**/api/projects', async (route) => {
+    await route.fulfill({ json: list })
+  })
+}
 
 /** Ответ на список задач: браузерный прогон идёт без бэкенда и без базы. */
 export async function stubTaskList(page: Page, tasks = undatedTasks) {

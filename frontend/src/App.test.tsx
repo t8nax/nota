@@ -1,4 +1,4 @@
-import { act, render, screen, waitFor } from '@testing-library/react'
+import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import App from './App'
@@ -13,15 +13,21 @@ function taskJson(
   isDone = false,
   dueDate: string | null = null,
   dueTime: string | null = null,
+  projectId: string | null = null,
 ) {
   return {
     id: crypto.randomUUID(),
     title,
     isDone,
     createdAt: new Date().toISOString(),
+    projectId,
     dueDate,
     dueTime,
   }
+}
+
+function projectJson(name: string) {
+  return { id: crypto.randomUUID(), name, createdAt: new Date().toISOString() }
 }
 
 function jsonResponse(body: unknown, status = 200) {
@@ -29,6 +35,39 @@ function jsonResponse(body: unknown, status = 200) {
     status,
     headers: { 'Content-Type': 'application/json' },
   })
+}
+
+/**
+ * Подменяет fetch: список проектов отвечает сам по себе, остальные запросы берут
+ * ответы из очереди по порядку. Запрос проектов уходит вместе с первой загрузкой
+ * ленты, и без отдельной ветки он съедал бы ответ, приготовленный для задач.
+ */
+function stubFetch(replies: (Response | Promise<Response> | Error)[], projects: unknown[] = []) {
+  const queue = [...replies]
+
+  vi.mocked(fetch).mockImplementation((input, init) => {
+    const url = String(input)
+    const method = init?.method ?? 'GET'
+
+    if (url === '/api/projects' && method === 'GET') return Promise.resolve(jsonResponse(projects))
+
+    const next = queue.shift()
+
+    if (next === undefined) return Promise.reject(new Error(`Нет ответа на ${method} ${url}`))
+
+    return next instanceof Error ? Promise.reject(next) : Promise.resolve(next)
+  })
+}
+
+/** Запросы этим методом в порядке отправки; запросы списков сюда не попадают. */
+function callsWith(method: string) {
+  return vi.mocked(fetch).mock.calls.filter(([, init]) => init?.method === method)
+}
+
+/** Сколько раз запрашивался список задач. */
+function taskListRequests() {
+  return vi.mocked(fetch).mock.calls.filter(([url, init]) => url === '/api/tasks' && !init?.method)
+    .length
 }
 
 /** Ответ, которым тест управляет вручную: нужен, чтобы задать порядок возвратов. */
@@ -66,10 +105,11 @@ afterEach(() => {
 describe('форма добавления задачи', () => {
   it('показывает созданную задачу в списке без перезагрузки страницы', async () => {
     const created = taskJson('Купить хлеб')
-    const fetchMock = vi.mocked(fetch)
-    fetchMock.mockResolvedValueOnce(jsonResponse([]))
-    fetchMock.mockResolvedValueOnce(jsonResponse(created, 201))
-    fetchMock.mockResolvedValueOnce(jsonResponse([created]))
+    stubFetch([
+      jsonResponse([]),
+      jsonResponse(created, 201),
+      jsonResponse([created]),
+    ])
 
     render(<App />)
     await screen.findByText('Задач пока нет.')
@@ -83,10 +123,11 @@ describe('форма добавления задачи', () => {
 
   it('отправляет заданный срок вместе с заголовком', async () => {
     const created = taskJson('Позвонить маме', false, '2026-09-20', '18:00:00')
-    const fetchMock = vi.mocked(fetch)
-    fetchMock.mockResolvedValueOnce(jsonResponse([]))
-    fetchMock.mockResolvedValueOnce(jsonResponse(created, 201))
-    fetchMock.mockResolvedValueOnce(jsonResponse([created]))
+    stubFetch([
+      jsonResponse([]),
+      jsonResponse(created, 201),
+      jsonResponse([created]),
+    ])
 
     render(<App />)
     await screen.findByText('Задач пока нет.')
@@ -98,19 +139,25 @@ describe('форма добавления задачи', () => {
 
     await screen.findByText('Позвонить маме')
 
-    const [, postCall] = fetchMock.mock.calls
+    const [postCall] = callsWith('POST')
     expect(postCall[1]).toMatchObject({
       method: 'POST',
-      body: JSON.stringify({ title: 'Позвонить маме', dueDate: '2026-09-20', dueTime: '18:00' }),
+      body: JSON.stringify({
+        title: 'Позвонить маме',
+        dueDate: '2026-09-20',
+        dueTime: '18:00',
+        projectId: null,
+      }),
     })
   })
 
   it('без даты отправляет пустой срок', async () => {
     const created = taskJson('Разобрать шкаф')
-    const fetchMock = vi.mocked(fetch)
-    fetchMock.mockResolvedValueOnce(jsonResponse([]))
-    fetchMock.mockResolvedValueOnce(jsonResponse(created, 201))
-    fetchMock.mockResolvedValueOnce(jsonResponse([created]))
+    stubFetch([
+      jsonResponse([]),
+      jsonResponse(created, 201),
+      jsonResponse([created]),
+    ])
 
     render(<App />)
     await screen.findByText('Задач пока нет.')
@@ -120,14 +167,19 @@ describe('форма добавления задачи', () => {
 
     await screen.findByText('Разобрать шкаф')
 
-    const [, postCall] = fetchMock.mock.calls
+    const [postCall] = callsWith('POST')
     expect(postCall[1]).toMatchObject({
-      body: JSON.stringify({ title: 'Разобрать шкаф', dueDate: null, dueTime: null }),
+      body: JSON.stringify({
+        title: 'Разобрать шкаф',
+        dueDate: null,
+        dueTime: null,
+        projectId: null,
+      }),
     })
   })
 
   it('не даёт задать время, пока не выбрана дата', async () => {
-    vi.mocked(fetch).mockResolvedValueOnce(jsonResponse([]))
+    stubFetch([jsonResponse([])])
 
     render(<App />)
     await screen.findByText('Задач пока нет.')
@@ -141,10 +193,11 @@ describe('форма добавления задачи', () => {
 
   it('очищает поля срока после создания', async () => {
     const created = taskJson('Сдать отчёт', false, '2026-09-20')
-    const fetchMock = vi.mocked(fetch)
-    fetchMock.mockResolvedValueOnce(jsonResponse([]))
-    fetchMock.mockResolvedValueOnce(jsonResponse(created, 201))
-    fetchMock.mockResolvedValueOnce(jsonResponse([created]))
+    stubFetch([
+      jsonResponse([]),
+      jsonResponse(created, 201),
+      jsonResponse([created]),
+    ])
 
     render(<App />)
     await screen.findByText('Задач пока нет.')
@@ -158,11 +211,10 @@ describe('форма добавления задачи', () => {
   })
 
   it('показывает сообщение об ошибке от сервера и не добавляет задачу', async () => {
-    const fetchMock = vi.mocked(fetch)
-    fetchMock.mockResolvedValueOnce(jsonResponse([]))
-    fetchMock.mockResolvedValueOnce(
+    stubFetch([
+      jsonResponse([]),
       jsonResponse({ errors: { title: ['Заголовок задачи не может быть пустым.'] } }, 400),
-    )
+    ])
 
     render(<App />)
     await screen.findByText('Задач пока нет.')
@@ -176,7 +228,7 @@ describe('форма добавления задачи', () => {
   })
 
   it('не даёт отправить пустой заголовок', async () => {
-    vi.mocked(fetch).mockResolvedValueOnce(jsonResponse([]))
+    stubFetch([jsonResponse([])])
 
     render(<App />)
     await screen.findByText('Задач пока нет.')
@@ -190,10 +242,11 @@ describe('форма добавления задачи', () => {
   it('не теряет созданную задачу, когда ответ первой загрузки приходит позже', async () => {
     const created = taskJson('Купить хлеб')
     const firstLoad = deferredResponse()
-    const fetchMock = vi.mocked(fetch)
-    fetchMock.mockReturnValueOnce(firstLoad.promise)
-    fetchMock.mockResolvedValueOnce(jsonResponse(created, 201))
-    fetchMock.mockResolvedValueOnce(jsonResponse([created]))
+    stubFetch([
+      firstLoad.promise,
+      jsonResponse(created, 201),
+      jsonResponse([created]),
+    ])
 
     render(<App />)
 
@@ -213,7 +266,7 @@ describe('форма добавления задачи', () => {
 
 describe('попап срока', () => {
   beforeEach(() => {
-    vi.mocked(fetch).mockResolvedValue(jsonResponse([]))
+    stubFetch([jsonResponse([])])
   })
 
   it('ставит день кнопкой «Завтра»', async () => {
@@ -280,9 +333,10 @@ describe('попап срока', () => {
 describe('отметка выполнения', () => {
   it('убирает задачу с экрана и запоминает ответ сервера', async () => {
     const task = taskJson('Купить хлеб')
-    const fetchMock = vi.mocked(fetch)
-    fetchMock.mockResolvedValueOnce(jsonResponse([task]))
-    fetchMock.mockResolvedValueOnce(jsonResponse({ ...task, isDone: true }))
+    stubFetch([
+      jsonResponse([task]),
+      jsonResponse({ ...task, isDone: true }),
+    ])
 
     render(<App />)
 
@@ -290,19 +344,17 @@ describe('отметка выполнения', () => {
 
     await waitFor(() => expect(screen.queryByRole('checkbox', { name: 'Купить хлеб' })).toBeNull())
 
-    const [, patchCall] = fetchMock.mock.calls
+    const [patchCall] = callsWith('PATCH')
     expect(patchCall[0]).toBe(`/api/tasks/${task.id}`)
     expect(patchCall[1]).toMatchObject({ method: 'PATCH', body: JSON.stringify({ isDone: true }) })
 
     // Задача уходит с экрана фильтром по уже загруженному списку, поэтому список
-    // не перезапрашивается: два вызова — начальная загрузка и сама отметка.
-    expect(fetchMock).toHaveBeenCalledTimes(2)
+    // не перезапрашивается: одной начальной загрузки достаточно.
+    expect(taskListRequests()).toBe(1)
   })
 
   it('выполненную задачу не показывает и при загрузке списка', async () => {
-    vi.mocked(fetch).mockResolvedValueOnce(
-      jsonResponse([taskJson('Полить цветы', true), taskJson('Купить хлеб')]),
-    )
+    stubFetch([jsonResponse([taskJson('Полить цветы', true), taskJson('Купить хлеб')])])
 
     render(<App />)
 
@@ -312,10 +364,11 @@ describe('отметка выполнения', () => {
 
   it('показывает попап с возвратом и возвращает задачу в ленту', async () => {
     const task = taskJson('Купить хлеб')
-    const fetchMock = vi.mocked(fetch)
-    fetchMock.mockResolvedValueOnce(jsonResponse([task]))
-    fetchMock.mockResolvedValueOnce(jsonResponse({ ...task, isDone: true }))
-    fetchMock.mockResolvedValueOnce(jsonResponse({ ...task, isDone: false }))
+    stubFetch([
+      jsonResponse([task]),
+      jsonResponse({ ...task, isDone: true }),
+      jsonResponse({ ...task, isDone: false }),
+    ])
 
     render(<App />)
 
@@ -329,16 +382,17 @@ describe('отметка выполнения', () => {
     expect(await screen.findByRole('checkbox', { name: 'Купить хлеб' })).not.toBeChecked()
     expect(screen.queryByText('Выполнено: Купить хлеб')).toBeNull()
 
-    const [, , restoreCall] = fetchMock.mock.calls
+    const [, restoreCall] = callsWith('PATCH')
     expect(restoreCall[1]).toMatchObject({ method: 'PATCH', body: JSON.stringify({ isDone: false }) })
   })
 
   it('трогает только ту задачу, по которой кликнули', async () => {
     const first = taskJson('Забрать посылку')
     const second = taskJson('Позвонить врачу')
-    const fetchMock = vi.mocked(fetch)
-    fetchMock.mockResolvedValueOnce(jsonResponse([first, second]))
-    fetchMock.mockResolvedValueOnce(jsonResponse({ ...first, isDone: true }))
+    stubFetch([
+      jsonResponse([first, second]),
+      jsonResponse({ ...first, isDone: true }),
+    ])
 
     render(<App />)
 
@@ -350,10 +404,11 @@ describe('отметка выполнения', () => {
 
   it('не теряет срок задачи, вернувшейся из попапа', async () => {
     const task = taskJson('Оплатить счёт', false, TODAY, '12:00:00')
-    const fetchMock = vi.mocked(fetch)
-    fetchMock.mockResolvedValueOnce(jsonResponse([task]))
-    fetchMock.mockResolvedValueOnce(jsonResponse({ ...task, isDone: true }))
-    fetchMock.mockResolvedValueOnce(jsonResponse({ ...task, isDone: false }))
+    stubFetch([
+      jsonResponse([task]),
+      jsonResponse({ ...task, isDone: true }),
+      jsonResponse({ ...task, isDone: false }),
+    ])
 
     render(<App />)
 
@@ -367,9 +422,10 @@ describe('отметка выполнения', () => {
 
   it('показывает ошибку сервера и оставляет отметку прежней', async () => {
     const task = taskJson('Сдать отчёт')
-    const fetchMock = vi.mocked(fetch)
-    fetchMock.mockResolvedValueOnce(jsonResponse([task]))
-    fetchMock.mockResolvedValueOnce(jsonResponse({ title: 'Not Found' }, 404))
+    stubFetch([
+      jsonResponse([task]),
+      jsonResponse({ title: 'Not Found' }, 404),
+    ])
 
     render(<App />)
 
@@ -390,7 +446,7 @@ describe('лента задач', () => {
       taskJson('Завтрашняя', false, '2026-09-13'),
       taskJson('Бессрочная'),
     ]
-    vi.mocked(fetch).mockResolvedValueOnce(jsonResponse(tasks))
+    stubFetch([jsonResponse(tasks)])
 
     render(<App />)
 
@@ -403,9 +459,7 @@ describe('лента задач', () => {
   })
 
   it('у просроченной задачи показывает дату, а не одно время', async () => {
-    vi.mocked(fetch).mockResolvedValueOnce(
-      jsonResponse([taskJson('Забытая', false, '2026-09-10', '08:00:00')]),
-    )
+    stubFetch([jsonResponse([taskJson('Забытая', false, '2026-09-10', '08:00:00')])])
 
     render(<App />)
 
@@ -413,7 +467,7 @@ describe('лента задач', () => {
   })
 
   it('у задачи без срока не показывает ни даты, ни времени', async () => {
-    vi.mocked(fetch).mockResolvedValueOnce(jsonResponse([taskJson('Когда-нибудь')]))
+    stubFetch([jsonResponse([taskJson('Когда-нибудь')])])
 
     render(<App />)
 
@@ -428,7 +482,7 @@ describe('лента задач', () => {
       taskJson('Вторая', false, TODAY),
       taskJson('Третья', true, TODAY),
     ]
-    vi.mocked(fetch).mockResolvedValueOnce(jsonResponse(tasks))
+    stubFetch([jsonResponse(tasks)])
 
     render(<App />)
 
@@ -437,9 +491,10 @@ describe('лента задач', () => {
 
   it('после отметки последней задачи лента пуста', async () => {
     const task = taskJson('Последняя', false, TODAY)
-    const fetchMock = vi.mocked(fetch)
-    fetchMock.mockResolvedValueOnce(jsonResponse([task]))
-    fetchMock.mockResolvedValueOnce(jsonResponse({ ...task, isDone: true }))
+    stubFetch([
+      jsonResponse([task]),
+      jsonResponse({ ...task, isDone: true }),
+    ])
 
     render(<App />)
 
@@ -454,9 +509,10 @@ describe('попап ошибки', () => {
   /** Отказ на отметке — самый короткий путь показать попап. */
   async function failToggle(body: unknown, status: number) {
     const task = taskJson('Сдать отчёт')
-    const fetchMock = vi.mocked(fetch)
-    fetchMock.mockResolvedValueOnce(jsonResponse([task]))
-    fetchMock.mockResolvedValueOnce(jsonResponse(body, status))
+    stubFetch([
+      jsonResponse([task]),
+      jsonResponse(body, status),
+    ])
 
     render(<App />)
     await userEvent.click(await screen.findByRole('checkbox', { name: 'Сдать отчёт' }))
@@ -501,9 +557,10 @@ describe('попап ошибки', () => {
 
   it('сетевой сбой без ответа сервера показывает тот же общий текст', async () => {
     const task = taskJson('Сдать отчёт')
-    const fetchMock = vi.mocked(fetch)
-    fetchMock.mockResolvedValueOnce(jsonResponse([task]))
-    fetchMock.mockRejectedValueOnce(new TypeError('Failed to fetch'))
+    stubFetch([
+      jsonResponse([task]),
+      new TypeError('Failed to fetch'),
+    ])
 
     render(<App />)
     await userEvent.click(await screen.findByRole('checkbox', { name: 'Сдать отчёт' }))
@@ -529,7 +586,7 @@ describe('раздел «Сегодня»', () => {
   }
 
   it('оставляет просроченное и сегодняшнее, пряча остальное', async () => {
-    vi.mocked(fetch).mockResolvedValueOnce(jsonResponse(mixedTasks()))
+    stubFetch([jsonResponse(mixedTasks())])
 
     render(<App />)
     await screen.findByText('Завтрашняя')
@@ -542,7 +599,7 @@ describe('раздел «Сегодня»', () => {
   })
 
   it('подписывает экран днём и остатком видимых задач', async () => {
-    vi.mocked(fetch).mockResolvedValueOnce(jsonResponse(mixedTasks()))
+    stubFetch([jsonResponse(mixedTasks())])
 
     render(<App />)
     await screen.findByText('Завтрашняя')
@@ -553,9 +610,7 @@ describe('раздел «Сегодня»', () => {
   })
 
   it('без задач на сегодня говорит об этом, а не молчит', async () => {
-    vi.mocked(fetch).mockResolvedValueOnce(
-      jsonResponse([taskJson('Завтрашняя', false, '2026-09-13'), taskJson('Бессрочная')]),
-    )
+    stubFetch([jsonResponse([taskJson('Завтрашняя', false, '2026-09-13'), taskJson('Бессрочная')])])
 
     render(<App />)
     await screen.findByText('Завтрашняя')
@@ -565,7 +620,7 @@ describe('раздел «Сегодня»', () => {
   })
 
   it('возврат к «Всем задачам» показывает список целиком', async () => {
-    vi.mocked(fetch).mockResolvedValueOnce(jsonResponse(mixedTasks()))
+    stubFetch([jsonResponse(mixedTasks())])
 
     render(<App />)
     await screen.findByText('Завтрашняя')
@@ -577,12 +632,322 @@ describe('раздел «Сегодня»', () => {
   })
 
   it('отмечает открытый раздел в левой колонке', async () => {
-    vi.mocked(fetch).mockResolvedValueOnce(jsonResponse([]))
+    stubFetch([jsonResponse([])])
 
     render(<App />)
     await openToday()
 
     expect(screen.getByRole('button', { name: 'Сегодня' })).toHaveAttribute('aria-current', 'page')
     expect(screen.getByRole('button', { name: 'Все задачи' })).not.toHaveAttribute('aria-current')
+  })
+})
+
+describe('экран проекта', () => {
+  it('показывает проекты в левой колонке', async () => {
+    const projects = [projectJson('Дом'), projectJson('Работа')]
+    stubFetch([jsonResponse([])], projects)
+
+    render(<App />)
+
+    expect(await screen.findByRole('button', { name: 'Дом' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Работа' })).toBeInTheDocument()
+  })
+
+  it('без проектов говорит об этом вместо пустого раздела', async () => {
+    stubFetch([jsonResponse([])])
+
+    render(<App />)
+
+    expect(await screen.findByText('Проектов пока нет')).toBeInTheDocument()
+  })
+
+  it('оставляет задачи открытого проекта и подписывает экран его именем', async () => {
+    const home = projectJson('Дом')
+    const work = projectJson('Работа')
+    stubFetch(
+      [jsonResponse([
+        taskJson('Полить цветы', false, null, null, home.id),
+        taskJson('Сдать отчёт', false, null, null, work.id),
+        taskJson('Без проекта'),
+      ])],
+      [home, work],
+    )
+
+    render(<App />)
+    await userEvent.click(await screen.findByRole('button', { name: 'Дом' }))
+
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Дом')
+    expect(screen.getByText('Полить цветы')).toBeInTheDocument()
+    expect(screen.queryByText('Сдать отчёт')).toBeNull()
+    expect(screen.queryByText('Без проекта')).toBeNull()
+  })
+
+  it('пустой проект говорит об этом, а не молчит', async () => {
+    const home = projectJson('Дом')
+    stubFetch([jsonResponse([taskJson('Без проекта')])], [home])
+
+    render(<App />)
+    await userEvent.click(await screen.findByRole('button', { name: 'Дом' }))
+
+    expect(screen.getByText('В проекте пока нет задач.')).toBeInTheDocument()
+  })
+
+  it('созданная на экране проекта задача уходит в этот проект', async () => {
+    const home = projectJson('Дом')
+    const created = taskJson('Полить цветы', false, null, null, home.id)
+    stubFetch(
+      [jsonResponse([]), jsonResponse(created, 201), jsonResponse([created])],
+      [home],
+    )
+
+    render(<App />)
+    await userEvent.click(await screen.findByRole('button', { name: 'Дом' }))
+
+    await userEvent.type(screen.getByLabelText('Заголовок новой задачи'), 'Полить цветы')
+    await userEvent.click(screen.getByRole('button', { name: 'Добавить' }))
+
+    await screen.findByText('Полить цветы')
+
+    const [postCall] = callsWith('POST')
+    expect(postCall[1]).toMatchObject({
+      body: JSON.stringify({
+        title: 'Полить цветы',
+        dueDate: null,
+        dueTime: null,
+        projectId: home.id,
+      }),
+    })
+  })
+
+  it('отмечает открытый проект в левой колонке', async () => {
+    const home = projectJson('Дом')
+    stubFetch([jsonResponse([])], [home])
+
+    render(<App />)
+    await userEvent.click(await screen.findByRole('button', { name: 'Дом' }))
+
+    expect(screen.getByRole('button', { name: 'Дом' })).toHaveAttribute('aria-current', 'page')
+    expect(screen.getByRole('button', { name: 'Все задачи' })).not.toHaveAttribute('aria-current')
+  })
+})
+
+describe('ведение проектов', () => {
+  /** Заводит проект через раздел левой колонки. */
+  async function addProject(name: string) {
+    await userEvent.click(screen.getByLabelText('Добавить проект'))
+    await userEvent.type(screen.getByLabelText('Название проекта'), name)
+    await userEvent.click(screen.getByRole('button', { name: 'Готово' }))
+  }
+
+  /** Открывает меню действий проекта, дождавшись загрузки списка проектов. */
+  async function openMenu(name: string) {
+    await userEvent.click(await screen.findByLabelText(`Действия проекта «${name}»`))
+  }
+
+  it('заводит проект и показывает его в колонке', async () => {
+    const created = projectJson('Дом')
+    stubFetch([jsonResponse([]), jsonResponse(created, 201)])
+
+    render(<App />)
+    await screen.findByText('Проектов пока нет')
+
+    await addProject('Дом')
+
+    expect(await screen.findByRole('button', { name: 'Дом' })).toBeInTheDocument()
+
+    const [postCall] = callsWith('POST')
+    expect(postCall[0]).toBe('/api/projects')
+    expect(postCall[1]).toMatchObject({ body: JSON.stringify({ name: 'Дом' }) })
+  })
+
+  it('отказ сервера показывает попапом и оставляет введённое имя', async () => {
+    stubFetch([
+      jsonResponse([]),
+      jsonResponse({ errors: { name: ['Название проекта не может быть пустым.'] } }, 400),
+    ])
+
+    render(<App />)
+    await screen.findByText('Проектов пока нет')
+
+    await addProject('Дом')
+
+    expect(await screen.findByText('Название проекта не может быть пустым.')).toBeInTheDocument()
+    expect(screen.getByLabelText('Название проекта')).toHaveValue('Дом')
+  })
+
+  it('переименовывает проект', async () => {
+    const home = projectJson('Дом')
+    stubFetch([jsonResponse([]), jsonResponse({ ...home, name: 'Дача' })], [home])
+
+    render(<App />)
+    await openMenu('Дом')
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Переименовать' }))
+
+    const field = screen.getByLabelText('Новое название проекта')
+    expect(field).toHaveValue('Дом')
+
+    await userEvent.clear(field)
+    await userEvent.type(field, 'Дача')
+    await userEvent.click(screen.getByRole('button', { name: 'Готово' }))
+
+    expect(await screen.findByRole('button', { name: 'Дача' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Дом' })).toBeNull()
+
+    const [patchCall] = callsWith('PATCH')
+    expect(patchCall[0]).toBe(`/api/projects/${home.id}`)
+    expect(patchCall[1]).toMatchObject({ body: JSON.stringify({ name: 'Дача' }) })
+  })
+
+  it('спрашивает перед удалением и не трогает проект при отказе', async () => {
+    const home = projectJson('Дом')
+    stubFetch([jsonResponse([])], [home])
+
+    render(<App />)
+    await openMenu('Дом')
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Удалить' }))
+
+    expect(screen.getByText('Удалить проект «Дом» вместе с задачами?')).toBeInTheDocument()
+
+    await userEvent.click(screen.getByRole('button', { name: 'Отмена' }))
+
+    expect(screen.getByRole('button', { name: 'Дом' })).toBeInTheDocument()
+    expect(callsWith('DELETE')).toHaveLength(0)
+  })
+
+  it('удаляет проект вместе с его задачами и возвращает на «Все задачи»', async () => {
+    const home = projectJson('Дом')
+    stubFetch(
+      [
+        jsonResponse([
+          taskJson('Полить цветы', false, null, null, home.id),
+          taskJson('Купить хлеб'),
+        ]),
+        new Response(null, { status: 204 }),
+      ],
+      [home],
+    )
+
+    render(<App />)
+    await userEvent.click(await screen.findByRole('button', { name: 'Дом' }))
+    await openMenu('Дом')
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Удалить' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Удалить' }))
+
+    await waitFor(() => expect(screen.queryByRole('button', { name: 'Дом' })).toBeNull())
+
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Сентябрь 2026')
+    expect(screen.getByText('Купить хлеб')).toBeInTheDocument()
+    expect(screen.queryByText('Полить цветы')).toBeNull()
+
+    const [deleteCall] = callsWith('DELETE')
+    expect(deleteCall[0]).toBe(`/api/projects/${home.id}`)
+  })
+
+  it('отказ удаления оставляет проект на месте', async () => {
+    const home = projectJson('Дом')
+    stubFetch([jsonResponse([]), jsonResponse({ title: 'Not Found' }, 404)], [home])
+
+    render(<App />)
+    await openMenu('Дом')
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Удалить' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Удалить' }))
+
+    expect(await screen.findByText('Произошла ошибка. Попробуйте позже.')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Дом' })).toBeInTheDocument()
+  })
+})
+
+describe('проект задачи', () => {
+  /** Выбирает проект в попапе: кнопка с тем же именем есть и в левой колонке. */
+  async function pickProject(label: string, name: string) {
+    await userEvent.click(await screen.findByLabelText(label))
+    await userEvent.click(
+      within(screen.getByRole('dialog', { name: label })).getByRole('button', { name }),
+    )
+  }
+
+  it('форма отправляет выбранный в ней проект', async () => {
+    const home = projectJson('Дом')
+    const created = taskJson('Полить цветы', false, null, null, home.id)
+    stubFetch([jsonResponse([]), jsonResponse(created, 201), jsonResponse([created])], [home])
+
+    render(<App />)
+    await screen.findByText('Задач пока нет.')
+
+    await userEvent.type(screen.getByLabelText('Заголовок новой задачи'), 'Полить цветы')
+    await pickProject('Проект задачи', 'Дом')
+    await userEvent.click(screen.getByRole('button', { name: 'Добавить' }))
+
+    await screen.findByText('Полить цветы')
+
+    const [postCall] = callsWith('POST')
+    expect(postCall[1]).toMatchObject({
+      body: JSON.stringify({
+        title: 'Полить цветы',
+        dueDate: null,
+        dueTime: null,
+        projectId: home.id,
+      }),
+    })
+  })
+
+  it('переносит задачу в другой проект и убирает её с экрана прежнего', async () => {
+    const home = projectJson('Дом')
+    const work = projectJson('Работа')
+    const task = taskJson('Полить цветы', false, null, null, home.id)
+    stubFetch(
+      [jsonResponse([task]), jsonResponse({ ...task, projectId: work.id })],
+      [home, work],
+    )
+
+    render(<App />)
+    await userEvent.click(await screen.findByRole('button', { name: 'Дом' }))
+
+    await pickProject('Проект задачи «Полить цветы»', 'Работа')
+
+    await waitFor(() => expect(screen.queryByText('Полить цветы')).toBeNull())
+
+    const [patchCall] = callsWith('PATCH')
+    expect(patchCall[0]).toBe(`/api/tasks/${task.id}`)
+    expect(patchCall[1]).toMatchObject({ body: JSON.stringify({ projectId: work.id }) })
+  })
+
+  it('снимает проект с задачи', async () => {
+    const home = projectJson('Дом')
+    const task = taskJson('Полить цветы', false, null, null, home.id)
+    stubFetch([jsonResponse([task]), jsonResponse({ ...task, projectId: null })], [home])
+
+    render(<App />)
+
+    await pickProject('Проект задачи «Полить цветы»', 'Без проекта')
+
+    const [patchCall] = callsWith('PATCH')
+    expect(patchCall[1]).toMatchObject({ body: JSON.stringify({ projectId: null }) })
+    await waitFor(() =>
+      expect(screen.getByLabelText('Проект задачи «Полить цветы»')).toHaveTextContent('Без проекта'),
+    )
+  })
+
+  it('отказ переноса показывает попап и оставляет задачу в прежнем проекте', async () => {
+    const home = projectJson('Дом')
+    const work = projectJson('Работа')
+    const task = taskJson('Полить цветы', false, null, null, home.id)
+    stubFetch([jsonResponse([task]), jsonResponse({ title: 'Not Found' }, 404)], [home, work])
+
+    render(<App />)
+
+    await pickProject('Проект задачи «Полить цветы»', 'Работа')
+
+    expect(await screen.findByText('Произошла ошибка. Попробуйте позже.')).toBeInTheDocument()
+    expect(screen.getByLabelText('Проект задачи «Полить цветы»')).toHaveTextContent('Дом')
+  })
+
+  it('без проектов карточка не предлагает выбор', async () => {
+    stubFetch([jsonResponse([taskJson('Полить цветы')])])
+
+    render(<App />)
+
+    await screen.findByText('Полить цветы')
+    expect(screen.queryByLabelText('Проект задачи «Полить цветы»')).toBeNull()
   })
 })

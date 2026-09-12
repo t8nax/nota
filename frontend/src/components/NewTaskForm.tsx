@@ -1,18 +1,23 @@
 import { useState, type FormEvent } from 'react'
-import type { DueInput } from '../api'
+import type { DueInput, ProjectResponse } from '../api'
 import DuePicker from './DuePicker'
+import ProjectPicker from './ProjectPicker'
 
 interface NewTaskFormProps {
   submitting: boolean
-  onSubmit: (title: string, due: DueInput) => Promise<boolean>
+  projects: readonly ProjectResponse[]
+  /** Проект открытого экрана: с него начинается выбор, пока его не сменили. */
+  defaultProjectId: string | null
+  onSubmit: (title: string, due: DueInput, projectId: string | null) => Promise<boolean>
 }
 
 const EMPTY_DUE: DueInput = { date: '', time: '' }
 
 /** Поле ввода в стиле дизайна: под заголовком — срок, время доступно только с датой. */
-function NewTaskForm({ submitting, onSubmit }: NewTaskFormProps) {
+function NewTaskForm({ submitting, projects, defaultProjectId, onSubmit }: NewTaskFormProps) {
   const [title, setTitle] = useState('')
   const [due, setDue] = useState<DueInput>(EMPTY_DUE)
+  const [projectId, setProjectId] = useState<string | null>(defaultProjectId)
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault()
@@ -20,9 +25,10 @@ function NewTaskForm({ submitting, onSubmit }: NewTaskFormProps) {
     if (submitting) return
 
     // Поля очищаются только после удачного создания, иначе введённое пропало бы зря.
-    if (await onSubmit(title, due)) {
+    if (await onSubmit(title, due, projectId)) {
       setTitle('')
       setDue(EMPTY_DUE)
+      setProjectId(defaultProjectId)
     }
   }
 
@@ -57,12 +63,22 @@ function NewTaskForm({ submitting, onSubmit }: NewTaskFormProps) {
         </button>
       </div>
 
-      <DuePicker
-        value={due}
-        disabled={submitting}
-        onDateChange={handleDateChange}
-        onTimeChange={(time) => setDue({ ...due, time })}
-      />
+      <div className="new-task-pickers">
+        <DuePicker
+          value={due}
+          disabled={submitting}
+          onDateChange={handleDateChange}
+          onTimeChange={(time) => setDue({ ...due, time })}
+        />
+
+        <ProjectPicker
+          projects={projects}
+          value={projectId}
+          label="Проект задачи"
+          disabled={submitting}
+          onPick={setProjectId}
+        />
+      </div>
     </form>
   )
 }

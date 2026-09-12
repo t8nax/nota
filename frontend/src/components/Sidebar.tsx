@@ -1,15 +1,21 @@
 import type { ReactNode } from 'react'
-import type { ViewId } from '../grouping'
+import type { ProjectResponse } from '../api'
+import type { View } from '../grouping'
+import ProjectNav from './ProjectNav'
 
 interface SidebarProps {
-  view: ViewId
-  onSelect: (view: ViewId) => void
+  view: View
+  projects: readonly ProjectResponse[]
+  onSelect: (view: View) => void
+  onCreateProject: (name: string) => Promise<boolean>
+  onRenameProject: (id: string, name: string) => Promise<boolean>
+  onDeleteProject: (id: string) => Promise<void>
 }
 
-/** Экраны в том порядке, в каком они стоят в левой колонке. */
-const VIEWS: { id: ViewId; label: string; icon: ReactNode }[] = [
+/** Общие экраны в том порядке, в каком они стоят в левой колонке. */
+const VIEWS: { view: View; label: string; icon: ReactNode }[] = [
   {
-    id: 'today',
+    view: { kind: 'today' },
     label: 'Сегодня',
     icon: (
       <>
@@ -21,7 +27,7 @@ const VIEWS: { id: ViewId; label: string; icon: ReactNode }[] = [
     ),
   },
   {
-    id: 'all',
+    view: { kind: 'all' },
     label: 'Все задачи',
     icon: (
       <>
@@ -33,8 +39,20 @@ const VIEWS: { id: ViewId; label: string; icon: ReactNode }[] = [
   },
 ]
 
-/** Левая колонка: бренд и переключатель экранов ленты. */
-function Sidebar({ view, onSelect }: SidebarProps) {
+/** Открыт ли сейчас этот экран. Проекты живут в своём разделе и сюда не попадают. */
+function isOpen(view: View, candidate: View): boolean {
+  return view.kind === candidate.kind
+}
+
+/** Левая колонка: бренд, общие экраны ленты и список проектов. */
+function Sidebar({
+  view,
+  projects,
+  onSelect,
+  onCreateProject,
+  onRenameProject,
+  onDeleteProject,
+}: SidebarProps) {
   return (
     <aside className="sidebar">
       <div className="brand">
@@ -52,11 +70,11 @@ function Sidebar({ view, onSelect }: SidebarProps) {
         <p className="nav-group-label">Списки</p>
         {VIEWS.map((item) => (
           <button
-            key={item.id}
+            key={item.label}
             type="button"
-            className={item.id === view ? 'nav-item active' : 'nav-item'}
-            aria-current={item.id === view ? 'page' : undefined}
-            onClick={() => onSelect(item.id)}
+            className={isOpen(view, item.view) ? 'nav-item active' : 'nav-item'}
+            aria-current={isOpen(view, item.view) ? 'page' : undefined}
+            onClick={() => onSelect(item.view)}
           >
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
               {item.icon}
@@ -65,6 +83,15 @@ function Sidebar({ view, onSelect }: SidebarProps) {
           </button>
         ))}
       </nav>
+
+      <ProjectNav
+        projects={projects}
+        view={view}
+        onSelect={onSelect}
+        onCreate={onCreateProject}
+        onRename={onRenameProject}
+        onDelete={onDeleteProject}
+      />
     </aside>
   )
 }

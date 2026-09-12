@@ -55,8 +55,8 @@ export function groupByDue(tasks: TaskResponse[], now: Date = new Date()): DueGr
   return groups
 }
 
-/** Экран ленты: «Все задачи» показывают весь список, «Сегодня» — его часть. */
-export type ViewId = 'all' | 'today'
+/** Экран ленты: два общих списка и лента отдельного проекта. */
+export type View = { kind: 'all' } | { kind: 'today' } | { kind: 'project'; projectId: string }
 
 /**
  * Оставляет задачи, которые попадают на экран. Порядок не меняется: его считает
@@ -64,10 +64,12 @@ export type ViewId = 'all' | 'today'
  * и оно теряется. Выполненная задача не попадает ни на один экран: она остаётся
  * в базе, но в ленте её место занимать не должна.
  */
-export function filterForView(tasks: TaskResponse[], view: ViewId, now: Date = new Date()): TaskResponse[] {
+export function filterForView(tasks: TaskResponse[], view: View, now: Date = new Date()): TaskResponse[] {
   const open = tasks.filter((task) => !task.isDone)
 
-  if (view === 'all') return open
+  if (view.kind === 'all') return open
+
+  if (view.kind === 'project') return open.filter((task) => task.projectId === view.projectId)
 
   const today = dateKey(now)
 

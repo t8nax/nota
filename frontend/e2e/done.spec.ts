@@ -1,9 +1,10 @@
 import { expect, test } from '@playwright/test'
-import { stubTaskList, stubToggle, undatedTasks } from './api-stub.ts'
+import { stubProjectList, stubTaskList, stubToggle, undatedTasks } from './api-stub.ts'
 
 const [first, second] = undatedTasks
 
 test('выполненная задача уходит с экрана и возвращается попапом', async ({ page }) => {
+  await stubProjectList(page)
   await stubTaskList(page)
   await stubToggle(page)
   await page.goto('/')
@@ -29,6 +30,7 @@ test('выполненная задача уходит с экрана и воз
 })
 
 test('после последней задачи лента говорит, что задач нет', async ({ page }) => {
+  await stubProjectList(page)
   await stubTaskList(page, [first])
   await stubToggle(page, [first])
   await page.goto('/')

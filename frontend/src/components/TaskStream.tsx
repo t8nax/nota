@@ -1,15 +1,17 @@
-import type { TaskResponse } from '../api'
+import type { ProjectResponse, TaskResponse } from '../api'
 import { groupByDue } from '../grouping'
 import TaskCard from './TaskCard'
 
 interface TaskStreamProps {
   tasks: TaskResponse[]
   pending: ReadonlySet<string>
+  projects: readonly ProjectResponse[]
   onToggle: (task: TaskResponse) => void
+  onMove: (task: TaskResponse, projectId: string | null) => void
 }
 
 /** Лента задач: срок — разделитель, под ним карточки этого срока. */
-function TaskStream({ tasks, pending, onToggle }: TaskStreamProps) {
+function TaskStream({ tasks, pending, projects, onToggle, onMove }: TaskStreamProps) {
   return (
     <>
       {groupByDue(tasks).map((group) => (
@@ -21,7 +23,9 @@ function TaskStream({ tasks, pending, onToggle }: TaskStreamProps) {
               task={task}
               overdue={group.overdue}
               pending={pending.has(task.id)}
+              projects={projects}
               onToggle={onToggle}
+              onMove={onMove}
             />
           ))}
         </section>

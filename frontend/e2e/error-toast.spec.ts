@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { stubFailingToggle, stubTaskList, undatedTasks } from './api-stub.ts'
+import { stubFailingToggle, stubProjectList, stubTaskList, undatedTasks } from './api-stub.ts'
 
 /** Ширина попапа из `App.css`: шире он не бывает ни на каком экране. */
 const MAX_TOAST_WIDTH = 320
@@ -15,7 +15,8 @@ const viewports = [
 for (const viewport of viewports) {
   test(`попап ошибки не растягивается: ${viewport.name}`, async ({ page }) => {
     await page.setViewportSize({ width: viewport.width, height: 720 })
-    await stubTaskList(page)
+    await stubProjectList(page)
+  await stubTaskList(page)
     await stubFailingToggle(page)
     await page.goto('/')
 

@@ -4,8 +4,13 @@ import type { TaskResponse } from './api'
 
 const NOW = new Date(2026, 8, 12, 10, 0)
 
-function task(id: string, dueDate: string | null = null, dueTime: string | null = null): TaskResponse {
-  return { id, title: id, isDone: false, createdAt: '2026-09-01T10:00:00', dueDate, dueTime }
+function task(
+  id: string,
+  dueDate: string | null = null,
+  dueTime: string | null = null,
+  projectId: string | null = null,
+): TaskResponse {
+  return { id, title: id, isDone: false, createdAt: '2026-09-01T10:00:00', projectId, dueDate, dueTime }
 }
 
 function doneTask(id: string, dueDate: string | null = null): TaskResponse {
@@ -64,13 +69,25 @@ describe('фильтр экрана', () => {
       task('без срока'),
     ]
 
-    expect(filterForView(tasks, 'today', NOW).map((t) => t.id)).toEqual(['вчера', 'сегодня'])
+    expect(filterForView(tasks, { kind: 'today' }, NOW).map((t) => t.id)).toEqual(['вчера', 'сегодня'])
   })
 
   it('на экране «Все задачи» отдаёт весь список и сохраняет порядок', () => {
     const tasks = [task('завтра', '2026-09-13'), task('без срока')]
 
-    expect(filterForView(tasks, 'all', NOW).map((t) => t.id)).toEqual(['завтра', 'без срока'])
+    expect(filterForView(tasks, { kind: 'all' }, NOW).map((t) => t.id)).toEqual(['завтра', 'без срока'])
+  })
+
+  it('на экране проекта оставляет только его задачи', () => {
+    const tasks = [
+      task('домашняя', null, null, 'дом'),
+      task('рабочая', null, null, 'работа'),
+      task('без проекта'),
+    ]
+
+    expect(filterForView(tasks, { kind: 'project', projectId: 'дом' }, NOW).map((t) => t.id)).toEqual([
+      'домашняя',
+    ])
   })
 
   it('выполненные задачи не попадают ни на один экран', () => {
@@ -80,7 +97,7 @@ describe('фильтр экрана', () => {
       doneTask('выполненная без срока'),
     ]
 
-    expect(filterForView(tasks, 'all', NOW).map((t) => t.id)).toEqual(['открытая сегодня'])
-    expect(filterForView(tasks, 'today', NOW).map((t) => t.id)).toEqual(['открытая сегодня'])
+    expect(filterForView(tasks, { kind: 'all' }, NOW).map((t) => t.id)).toEqual(['открытая сегодня'])
+    expect(filterForView(tasks, { kind: 'today' }, NOW).map((t) => t.id)).toEqual(['открытая сегодня'])
   })
 })

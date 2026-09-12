@@ -1,7 +1,8 @@
 import { expect, test } from '@playwright/test'
-import { stubTaskList, undatedTasks } from './api-stub.ts'
+import { stubProjectList, stubTaskList, undatedTasks } from './api-stub.ts'
 
 test('лента показывает задачи, пришедшие от API', async ({ page }) => {
+  await stubProjectList(page)
   await stubTaskList(page)
   await page.goto('/')
 
