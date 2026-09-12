@@ -10,6 +10,9 @@ public class TodoTask
     public bool IsDone { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
 
+    /// <summary>Проект, которому принадлежит задача. Null — задача не в проекте.</summary>
+    public Guid? ProjectId { get; set; }
+
     /// <summary>День срока в календаре пользователя. Null — срока нет.</summary>
     public DateOnly? DueDate { get; set; }
 

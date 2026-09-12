@@ -23,6 +23,13 @@ public class UpdateTaskTests(NotaApiFactory factory)
         DueTime = dueTime
     };
 
+    private static Project NewProject(string name) => new()
+    {
+        Id = Guid.NewGuid(),
+        Name = name,
+        CreatedAt = DateTimeOffset.UtcNow
+    };
+
     /// <summary>
     /// Тело PATCH отправляется строкой, а не объектом: смысл запроса в том, какие поля
     /// в нём есть, и сериализация контракта это различие не передаёт.
@@ -246,6 +253,76 @@ public class UpdateTaskTests(NotaApiFactory factory)
         Assert.True(stored.IsDone);
         Assert.Equal(new DateOnly(2026, 9, 20), stored.DueDate);
         Assert.Equal(new TimeOnly(12, 0), stored.DueTime);
+    }
+
+    [Fact]
+    public async Task Moves_task_to_another_project()
+    {
+        await factory.ResetAsync();
+        var from = NewProject("Дом");
+        var to = NewProject("Работа");
+        await factory.SeedAsync(from, to);
+        var task = NewTask("Позвонить в банк");
+        task.ProjectId = from.Id;
+        await factory.SeedAsync(task);
+
+        var response = await PatchAsync(task.Id, $$"""{"projectId": "{{to.Id}}"}""");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var updated = await response.Content.ReadFromJsonAsync<TaskResponse>();
+        Assert.NotNull(updated);
+        Assert.Equal(to.Id, updated.ProjectId);
+
+        Assert.Equal(to.Id, Assert.Single(await factory.GetTasksAsync()).ProjectId);
+    }
+
+    [Fact]
+    public async Task Removes_task_from_project()
+    {
+        await factory.ResetAsync();
+        var project = NewProject("Дом");
+        await factory.SeedAsync(project);
+        var task = NewTask("Полить цветы");
+        task.ProjectId = project.Id;
+        await factory.SeedAsync(task);
+
+        var response = await PatchAsync(task.Id, """{"projectId": null}""");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Null(Assert.Single(await factory.GetTasksAsync()).ProjectId);
+    }
+
+    [Fact]
+    public async Task Marking_done_keeps_the_project()
+    {
+        await factory.ResetAsync();
+        var project = NewProject("Дом");
+        await factory.SeedAsync(project);
+        var task = NewTask("Полить цветы");
+        task.ProjectId = project.Id;
+        await factory.SeedAsync(task);
+
+        var response = await PatchAsync(task.Id, """{"isDone": true}""");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var stored = Assert.Single(await factory.GetTasksAsync());
+        Assert.True(stored.IsDone);
+        Assert.Equal(project.Id, stored.ProjectId);
+    }
+
+    [Fact]
+    public async Task Rejects_unknown_project()
+    {
+        await factory.ResetAsync();
+        var task = NewTask("Полить цветы");
+        await factory.SeedAsync(task);
+
+        var response = await PatchAsync(task.Id, $$"""{"projectId": "{{Guid.NewGuid()}}"}""");
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Null(Assert.Single(await factory.GetTasksAsync()).ProjectId);
     }
 
     [Fact]

@@ -147,6 +147,59 @@ public class CreateTaskTests(NotaApiFactory factory)
     }
 
     [Fact]
+    public async Task Creates_task_in_project()
+    {
+        await factory.ResetAsync();
+        var project = new Project { Id = Guid.NewGuid(), Name = "Дом", CreatedAt = DateTimeOffset.UtcNow };
+        await factory.SeedAsync(project);
+
+        var client = factory.CreateClient();
+
+        var response = await client.PostAsJsonAsync(
+            "/api/tasks",
+            new CreateTaskRequest("Полить цветы", ProjectId: project.Id));
+
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+
+        var created = await response.Content.ReadFromJsonAsync<TaskResponse>();
+        Assert.NotNull(created);
+        Assert.Equal(project.Id, created.ProjectId);
+
+        Assert.Equal(project.Id, Assert.Single(await factory.GetTasksAsync()).ProjectId);
+    }
+
+    [Fact]
+    public async Task Creates_task_without_project()
+    {
+        await factory.ResetAsync();
+
+        var client = factory.CreateClient();
+
+        var response = await client.PostAsJsonAsync("/api/tasks", new CreateTaskRequest("Разобрать почту"));
+
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+
+        var created = await response.Content.ReadFromJsonAsync<TaskResponse>();
+        Assert.NotNull(created);
+        Assert.Null(created.ProjectId);
+    }
+
+    [Fact]
+    public async Task Rejects_unknown_project()
+    {
+        await factory.ResetAsync();
+
+        var client = factory.CreateClient();
+
+        var response = await client.PostAsJsonAsync(
+            "/api/tasks",
+            new CreateTaskRequest("Полить цветы", ProjectId: Guid.NewGuid()));
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Empty(await factory.GetTasksAsync());
+    }
+
+    [Fact]
     public async Task Rejects_time_without_date()
     {
         await factory.ResetAsync();

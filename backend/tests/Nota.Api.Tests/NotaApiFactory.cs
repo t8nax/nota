@@ -44,12 +44,13 @@ public class NotaApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
         await base.DisposeAsync();
     }
 
-    /// <summary>Очищает таблицу задач, чтобы тест начинался с известного состояния.</summary>
+    /// <summary>Очищает таблицы, чтобы тест начинался с известного состояния.</summary>
     public async Task ResetAsync()
     {
         using var scope = Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<NotaDbContext>();
         await db.Tasks.ExecuteDeleteAsync();
+        await db.Projects.ExecuteDeleteAsync();
     }
 
     /// <summary>Читает задачи прямо из базы, минуя API.</summary>
@@ -65,6 +66,22 @@ public class NotaApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
         using var scope = Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<NotaDbContext>();
         db.Tasks.AddRange(tasks);
+        await db.SaveChangesAsync();
+    }
+
+    /// <summary>Читает проекты прямо из базы, минуя API.</summary>
+    public async Task<List<Project>> GetProjectsAsync()
+    {
+        using var scope = Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<NotaDbContext>();
+        return await db.Projects.AsNoTracking().ToListAsync();
+    }
+
+    public async Task SeedAsync(params Project[] projects)
+    {
+        using var scope = Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<NotaDbContext>();
+        db.Projects.AddRange(projects);
         await db.SaveChangesAsync();
     }
 }

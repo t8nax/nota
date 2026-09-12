@@ -17,6 +17,7 @@ if (app.Environment.IsDevelopment())
 
 app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
 app.MapTaskEndpoints();
+app.MapProjectEndpoints();
 
 app.Run();
 

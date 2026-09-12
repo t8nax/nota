@@ -7,6 +7,8 @@ public class NotaDbContext(DbContextOptions<NotaDbContext> options) : DbContext(
 {
     public DbSet<TodoTask> Tasks => Set<TodoTask>();
 
+    public DbSet<Project> Projects => Set<Project>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<TodoTask>(task =>
@@ -19,6 +21,21 @@ public class NotaDbContext(DbContextOptions<NotaDbContext> options) : DbContext(
             task.HasKey(t => t.Id);
             task.Property(t => t.Title).HasMaxLength(TodoTask.TitleMaxLength).IsRequired();
             task.Property(t => t.CreatedAt).IsRequired();
+            // Удаление проекта уносит его задачи: решение человека — проект удаляется
+            // со всем содержимым, как в Todoist. Каскад стоит в базе, а не в коде,
+            // чтобы задача не пережила свой проект ни при какой записи.
+            task.HasOne<Project>()
+                .WithMany()
+                .HasForeignKey(t => t.ProjectId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<Project>(project =>
+        {
+            project.ToTable("projects");
+            project.HasKey(p => p.Id);
+            project.Property(p => p.Name).HasMaxLength(Project.NameMaxLength).IsRequired();
+            project.Property(p => p.CreatedAt).IsRequired();
         });
     }
 }

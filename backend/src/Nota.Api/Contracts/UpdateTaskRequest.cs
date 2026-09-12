@@ -7,4 +7,5 @@ namespace Nota.Api.Contracts;
 public record UpdateTaskRequest(
     Patch<bool?> IsDone,
     Patch<DateOnly?> DueDate,
-    Patch<TimeOnly?> DueTime);
+    Patch<TimeOnly?> DueTime,
+    Patch<Guid?> ProjectId);

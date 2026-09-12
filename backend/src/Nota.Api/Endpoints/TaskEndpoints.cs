@@ -21,7 +21,7 @@ public static class TaskEndpoints
                 .ThenBy(t => t.DueTime.HasValue ? 1 : 0)
                 .ThenBy(t => t.DueTime)
                 .ThenByDescending(t => t.CreatedAt)
-                .Select(t => new TaskResponse(t.Id, t.Title, t.IsDone, t.CreatedAt, t.DueDate, t.DueTime))
+                .Select(t => new TaskResponse(t.Id, t.Title, t.IsDone, t.CreatedAt, t.ProjectId, t.DueDate, t.DueTime))
                 .ToListAsync(ct);
 
             return Results.Ok(tasks);
@@ -56,12 +56,18 @@ public static class TaskEndpoints
                 });
             }
 
+            if (await MissingProjectAsync(request.ProjectId, db, ct) is { } unknownProject)
+            {
+                return unknownProject;
+            }
+
             var task = new TodoTask
             {
                 Id = Guid.NewGuid(),
                 Title = title,
                 IsDone = false,
                 CreatedAt = DateTimeOffset.UtcNow,
+                ProjectId = request.ProjectId,
                 DueDate = request.DueDate,
                 DueTime = request.DueTime
             };
@@ -77,7 +83,7 @@ public static class TaskEndpoints
 
         group.MapPatch("/{id:guid}", async (Guid id, UpdateTaskRequest request, NotaDbContext db, CancellationToken ct) =>
         {
-            if (!request.IsDone.IsSet && !request.DueDate.IsSet && !request.DueTime.IsSet)
+            if (!request.IsDone.IsSet && !request.DueDate.IsSet && !request.DueTime.IsSet && !request.ProjectId.IsSet)
             {
                 return Results.ValidationProblem(new Dictionary<string, string[]>
                 {
@@ -118,6 +124,16 @@ public static class TaskEndpoints
                 });
             }
 
+            if (request.ProjectId.IsSet)
+            {
+                if (await MissingProjectAsync(request.ProjectId.Value, db, ct) is { } unknownProject)
+                {
+                    return unknownProject;
+                }
+
+                task.ProjectId = request.ProjectId.Value;
+            }
+
             if (request.IsDone.Value is bool isDone)
             {
                 task.IsDone = isDone;
@@ -135,6 +151,23 @@ public static class TaskEndpoints
 
     private const string TimeWithoutDateMessage = "Время срока нельзя задать без даты.";
 
+    /// <summary>
+    /// Отказ, если проект назван, но такого нет, иначе null. Без этой проверки запрос
+    /// упирался бы во внешний ключ базы и возвращал 500 вместо внятного отказа.
+    /// </summary>
+    private static async Task<IResult?> MissingProjectAsync(Guid? projectId, NotaDbContext db, CancellationToken ct)
+    {
+        if (projectId is not { } id || await db.Projects.AnyAsync(p => p.Id == id, ct))
+        {
+            return null;
+        }
+
+        return Results.ValidationProblem(new Dictionary<string, string[]>
+        {
+            ["projectId"] = ["Такого проекта нет."]
+        });
+    }
+
     private static TaskResponse ToResponse(TodoTask task) =>
-        new(task.Id, task.Title, task.IsDone, task.CreatedAt, task.DueDate, task.DueTime);
+        new(task.Id, task.Title, task.IsDone, task.CreatedAt, task.ProjectId, task.DueDate, task.DueTime);
 }

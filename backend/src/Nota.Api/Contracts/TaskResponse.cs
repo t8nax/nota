@@ -5,5 +5,6 @@ public record TaskResponse(
     string Title,
     bool IsDone,
     DateTimeOffset CreatedAt,
+    Guid? ProjectId,
     DateOnly? DueDate,
     TimeOnly? DueTime);
