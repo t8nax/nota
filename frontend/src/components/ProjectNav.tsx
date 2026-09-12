@@ -101,10 +101,6 @@ function ProjectNav({ projects, view, onSelect, onCreate, onRename, onDelete }: 
     <nav aria-label="Проекты" ref={root}>
       <p className="nav-group-label">Проекты</p>
 
-      {projects.length === 0 && mode.kind !== 'creating' && (
-        <p className="nav-empty">Проектов пока нет</p>
-      )}
-
       {projects.map((project) => {
         const projectView: View = { kind: 'project', projectId: project.id }
         const open = view.kind === 'project' && view.projectId === project.id

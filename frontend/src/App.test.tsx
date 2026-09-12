@@ -653,12 +653,13 @@ describe('экран проекта', () => {
     expect(screen.getByRole('button', { name: 'Работа' })).toBeInTheDocument()
   })
 
-  it('без проектов говорит об этом вместо пустого раздела', async () => {
+  it('пустой раздел показывает только пункт заведения проекта', async () => {
     stubFetch([jsonResponse([])])
 
     render(<App />)
 
-    expect(await screen.findByText('Проектов пока нет')).toBeInTheDocument()
+    expect(await screen.findByText('Добавить проект')).toBeInTheDocument()
+    expect(screen.queryByRole('menu')).toBeNull()
   })
 
   it('оставляет задачи открытого проекта и подписывает экран его именем', async () => {
@@ -749,7 +750,7 @@ describe('ведение проектов', () => {
     stubFetch([jsonResponse([]), jsonResponse(created, 201)])
 
     render(<App />)
-    await screen.findByText('Проектов пока нет')
+    await screen.findByText('Добавить проект')
 
     await addProject('Дом')
 
@@ -767,7 +768,7 @@ describe('ведение проектов', () => {
     ])
 
     render(<App />)
-    await screen.findByText('Проектов пока нет')
+    await screen.findByText('Добавить проект')
 
     await addProject('Дом')
 
@@ -798,7 +799,7 @@ describe('ведение проектов', () => {
     stubFetch([jsonResponse([])])
 
     render(<App />)
-    await screen.findByText('Проектов пока нет')
+    await screen.findByText('Добавить проект')
 
     await userEvent.click(screen.getByText('Добавить проект'))
     await userEvent.type(screen.getByLabelText('Название проекта'), 'Дом')

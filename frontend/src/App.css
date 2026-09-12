@@ -249,12 +249,6 @@
   white-space: nowrap;
 }
 
-.nav-empty {
-  padding: 0 16px;
-  font-size: 13px;
-  color: var(--text-tertiary);
-}
-
 /* Лента */
 
 .main-stream {
@@ -885,7 +879,6 @@
   }
 
   .sidebar .nav-group-label,
-  .sidebar .nav-empty,
   .brand span,
   .nav-item > span:not(.project-dot) {
     display: none;
