@@ -1,7 +1,8 @@
-import { render, screen, waitFor } from '@testing-library/react'
+import { act, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import App from './App'
+import { TOAST_LIFETIME_MS } from './components/ErrorToasts'
 
 /** Лента считает «сегодня» по часам машины, поэтому во всех тестах день фиксирован. */
 const TODAY = '2026-09-12'
@@ -159,7 +160,8 @@ describe('форма добавления задачи', () => {
     await userEvent.type(screen.getByLabelText('Заголовок новой задачи'), 'что-то')
     await userEvent.click(screen.getByRole('button', { name: 'Добавить' }))
 
-    expect(await screen.findByText('Заголовок задачи не может быть пустым.')).toBeInTheDocument()
+    const message = await screen.findByText('Заголовок задачи не может быть пустым.')
+    expect(message.closest('.toast')).not.toBeNull()
     await waitFor(() => expect(screen.getByText('Задач пока нет.')).toBeInTheDocument())
   })
 
@@ -326,7 +328,9 @@ describe('отметка выполнения', () => {
 
     await userEvent.click(await screen.findByRole('checkbox', { name: 'Сдать отчёт' }))
 
-    expect(await screen.findByText('Not Found')).toBeInTheDocument()
+    expect(await screen.findByText('Произошла ошибка. Попробуйте позже.')).toBeInTheDocument()
+    expect(screen.queryByText(/404/)).toBeNull()
+    expect(screen.queryByText(/Not Found/)).toBeNull()
     expect(screen.getByRole('checkbox', { name: 'Сдать отчёт' })).not.toBeChecked()
   })
 })
@@ -395,5 +399,68 @@ describe('лента задач', () => {
     await userEvent.click(await screen.findByRole('checkbox', { name: 'Последняя' }))
 
     expect(await screen.findByText('Все задачи выполнены')).toBeInTheDocument()
+  })
+})
+
+describe('попап ошибки', () => {
+  /** Отказ на отметке — самый короткий путь показать попап. */
+  async function failToggle(body: unknown, status: number) {
+    const task = taskJson('Сдать отчёт')
+    const fetchMock = vi.mocked(fetch)
+    fetchMock.mockResolvedValueOnce(jsonResponse([task]))
+    fetchMock.mockResolvedValueOnce(jsonResponse(body, status))
+
+    render(<App />)
+    await userEvent.click(await screen.findByRole('checkbox', { name: 'Сдать отчёт' }))
+  }
+
+  it('показывает сообщение попапом, а не строкой в ленте', async () => {
+    await failToggle({ errors: { request: ['Нужно передать хотя бы одно изменяемое поле.'] } }, 400)
+
+    const message = await screen.findByText('Нужно передать хотя бы одно изменяемое поле.')
+    expect(message.closest('.toast')).not.toBeNull()
+    expect(document.querySelector('.main-stream .error')).toBeNull()
+  })
+
+  it('показывает полоску, укорачивающуюся ровно за время жизни попапа', async () => {
+    await failToggle({ title: 'Not Found' }, 404)
+    await screen.findByText('Произошла ошибка. Попробуйте позже.')
+
+    const countdown = document.querySelector<HTMLElement>('.toast-countdown')
+    expect(countdown).not.toBeNull()
+    expect(countdown?.style.animationDuration).toBe(`${TOAST_LIFETIME_MS}ms`)
+  })
+
+  it('убирает попап сам через отведённое время', async () => {
+    await failToggle({ title: 'Not Found' }, 404)
+    await screen.findByText('Произошла ошибка. Попробуйте позже.')
+
+    act(() => {
+      vi.advanceTimersByTime(TOAST_LIFETIME_MS)
+    })
+
+    expect(screen.queryByText('Произошла ошибка. Попробуйте позже.')).toBeNull()
+  })
+
+  it('закрывается по кнопке, не дожидаясь времени', async () => {
+    await failToggle({ title: 'Not Found' }, 404)
+    await screen.findByText('Произошла ошибка. Попробуйте позже.')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Закрыть сообщение' }))
+
+    expect(screen.queryByText('Произошла ошибка. Попробуйте позже.')).toBeNull()
+  })
+
+  it('сетевой сбой без ответа сервера показывает тот же общий текст', async () => {
+    const task = taskJson('Сдать отчёт')
+    const fetchMock = vi.mocked(fetch)
+    fetchMock.mockResolvedValueOnce(jsonResponse([task]))
+    fetchMock.mockRejectedValueOnce(new TypeError('Failed to fetch'))
+
+    render(<App />)
+    await userEvent.click(await screen.findByRole('checkbox', { name: 'Сдать отчёт' }))
+
+    expect(await screen.findByText('Произошла ошибка. Попробуйте позже.')).toBeInTheDocument()
+    expect(screen.queryByText(/Failed to fetch/)).toBeNull()
   })
 })

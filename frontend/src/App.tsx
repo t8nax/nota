@@ -1,5 +1,13 @@
-import { useEffect, useMemo, useState } from 'react'
-import { createTask, fetchTasks, setTaskDone, type DueInput, type TaskResponse } from './api'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import {
+  createTask,
+  fetchTasks,
+  GENERIC_FAILURE,
+  setTaskDone,
+  type DueInput,
+  type TaskResponse,
+} from './api'
+import ErrorToasts, { type ErrorToast } from './components/ErrorToasts'
 import NewTaskForm from './components/NewTaskForm'
 import Sidebar from './components/Sidebar'
 import TaskStream from './components/TaskStream'
@@ -12,19 +20,29 @@ type ListState =
   | { status: 'error'; message: string }
   | { status: 'ready'; tasks: TaskResponse[] }
 
+/** Тексты для человека складывает `api.ts`; всё остальное сюда доходить не должно. */
 function describe(error: unknown): string {
-  return error instanceof Error ? error.message : String(error)
+  return error instanceof Error ? error.message : GENERIC_FAILURE
 }
 
 function App() {
   const [list, setList] = useState<ListState>({ status: 'loading' })
   const [submitting, setSubmitting] = useState(false)
-  const [submitError, setSubmitError] = useState<string | null>(null)
   // Отметки переключаются независимо друг от друга, поэтому ждущих запросов может быть несколько.
   const [pending, setPending] = useState<ReadonlySet<string>>(new Set())
-  const [toggleError, setToggleError] = useState<string | null>(null)
+  const [toasts, setToasts] = useState<readonly ErrorToast[]>([])
+  const lastToastId = useRef(0)
 
   const monthTitle = useMemo(() => formatMonthTitle(new Date()), [])
+
+  const dismissToast = useCallback((id: number) => {
+    setToasts((current) => current.filter((toast) => toast.id !== id))
+  }, [])
+
+  function showError(error: unknown) {
+    lastToastId.current += 1
+    setToasts((current) => [...current, { id: lastToastId.current, message: describe(error) }])
+  }
 
   useEffect(() => {
     let cancelled = false
@@ -34,6 +52,8 @@ function App() {
         if (!cancelled) setList({ status: 'ready', tasks })
       })
       .catch((error: unknown) => {
+        // Первая загрузка оставляет экран пустым, поэтому её отказ живёт в теле ленты:
+        // исчезнувший попап оставил бы человека перед пустотой без объяснения.
         if (!cancelled) setList({ status: 'error', message: describe(error) })
       })
 
@@ -44,12 +64,11 @@ function App() {
 
   async function handleCreate(title: string, due: DueInput): Promise<boolean> {
     setSubmitting(true)
-    setSubmitError(null)
 
     try {
       await createTask(title, due)
     } catch (error: unknown) {
-      setSubmitError(describe(error))
+      showError(error)
 
       return false
     } finally {
@@ -61,7 +80,7 @@ function App() {
     try {
       setList({ status: 'ready', tasks: await fetchTasks() })
     } catch (error: unknown) {
-      setSubmitError(describe(error))
+      showError(error)
     }
 
     return true
@@ -71,7 +90,6 @@ function App() {
     if (pending.has(task.id)) return
 
     setPending((current) => new Set(current).add(task.id))
-    setToggleError(null)
 
     try {
       const updated = await setTaskDone(task.id, !task.isDone)
@@ -82,7 +100,7 @@ function App() {
           : current,
       )
     } catch (error: unknown) {
-      setToggleError(describe(error))
+      showError(error)
     } finally {
       setPending((current) => {
         const next = new Set(current)
@@ -114,10 +132,6 @@ function App() {
 
         <NewTaskForm submitting={submitting} onSubmit={handleCreate} />
 
-        {submitError && <p className="error">{submitError}</p>}
-
-        {toggleError && <p className="error">{toggleError}</p>}
-
         {list.status === 'loading' && <p className="hint">Загрузка…</p>}
 
         {list.status === 'error' && <p className="error">{list.message}</p>}
@@ -128,6 +142,8 @@ function App() {
           <TaskStream tasks={list.tasks} pending={pending} onToggle={handleToggle} />
         )}
       </main>
+
+      <ErrorToasts toasts={toasts} onDismiss={dismissToast} />
     </div>
   )
 }

@@ -17,35 +17,50 @@ export interface DueInput {
 
 /** Тело ответа RFC 7807, которым minimal API отвечает на неверный запрос. */
 interface ProblemDetails {
-  title?: string
-  detail?: string
   errors?: Record<string, string[]>
 }
 
-/** Достаёт из ответа сообщение, которое не стыдно показать пользователю. */
+/** Текст на случай, когда причина отказа человеку ничего не объясняет. */
+export const GENERIC_FAILURE = 'Произошла ошибка. Попробуйте позже.'
+
+/**
+ * Сообщение, которое увидит человек. Наружу выходят только тексты проверок API:
+ * они написаны по-русски и для человека. Всё остальное — код ответа, служебные
+ * заголовки ASP.NET, текст сетевого сбоя — человеку ничего не говорит и заменяется
+ * общим текстом.
+ */
 async function describeFailure(response: Response, fallback: string): Promise<string> {
   try {
     const problem: ProblemDetails = await response.json()
     const fieldError = problem.errors && Object.values(problem.errors).flat()[0]
 
-    return fieldError ?? problem.detail ?? problem.title ?? `${fallback}: ${response.status}`
+    return fieldError ?? fallback
   } catch {
-    return `${fallback}: ${response.status}`
+    return fallback
+  }
+}
+
+/** Запрос к API: сетевой сбой доходит до экрана тем же понятным текстом, что и отказ сервера. */
+async function request(url: string, init?: RequestInit): Promise<Response> {
+  try {
+    return await fetch(url, init)
+  } catch {
+    throw new Error(GENERIC_FAILURE)
   }
 }
 
 export async function fetchTasks(): Promise<TaskResponse[]> {
-  const response = await fetch('/api/tasks')
+  const response = await request('/api/tasks')
 
   if (!response.ok) {
-    throw new Error(await describeFailure(response, 'Не удалось получить список задач'))
+    throw new Error(await describeFailure(response, 'Не удалось загрузить задачи. Попробуйте позже.'))
   }
 
   return response.json()
 }
 
 export async function createTask(title: string, due: DueInput): Promise<TaskResponse> {
-  const response = await fetch('/api/tasks', {
+  const response = await request('/api/tasks', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -57,21 +72,21 @@ export async function createTask(title: string, due: DueInput): Promise<TaskResp
   })
 
   if (!response.ok) {
-    throw new Error(await describeFailure(response, 'Не удалось создать задачу'))
+    throw new Error(await describeFailure(response, GENERIC_FAILURE))
   }
 
   return response.json()
 }
 
 export async function setTaskDone(id: string, isDone: boolean): Promise<TaskResponse> {
-  const response = await fetch(`/api/tasks/${id}`, {
+  const response = await request(`/api/tasks/${id}`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ isDone }),
   })
 
   if (!response.ok) {
-    throw new Error(await describeFailure(response, 'Не удалось изменить отметку'))
+    throw new Error(await describeFailure(response, GENERIC_FAILURE))
   }
 
   return response.json()

@@ -104,6 +104,102 @@
   font-weight: 500;
 }
 
+/* Попап ошибки */
+
+.toast-stack {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  /* Стек перекрывает ленту, и клики сквозь него должны доходить до неё;
+     сам попап их снова ловит. */
+  pointer-events: none;
+}
+
+.toast {
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  width: 320px;
+  padding: 16px;
+  background: var(--bg-card);
+  border: 1px solid var(--divider);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.6);
+  pointer-events: auto;
+  animation: toast-in 0.2s ease-out;
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Длительность задаёт компонент: она равна времени жизни попапа. */
+.toast-countdown {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: var(--tag-red);
+  transform-origin: left;
+  animation-name: toast-countdown;
+  animation-timing-function: linear;
+  animation-fill-mode: forwards;
+}
+
+@keyframes toast-countdown {
+  from {
+    transform: scaleX(1);
+  }
+
+  to {
+    transform: scaleX(0);
+  }
+}
+
+.toast-icon {
+  display: flex;
+  flex: none;
+  margin-top: 1px;
+  color: var(--tag-red);
+}
+
+.toast-message {
+  flex: 1;
+  min-width: 0;
+  font-weight: 500;
+  color: var(--text-main);
+}
+
+.toast-close {
+  display: flex;
+  flex: none;
+  padding: 2px;
+  border: none;
+  background: transparent;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  transition: color 0.2s;
+}
+
+.toast-close:hover {
+  color: var(--text-main);
+}
+
 .date-divider {
   font-size: 12px;
   font-weight: 700;
@@ -562,5 +658,15 @@
 
   .current-month {
     font-size: 32px;
+  }
+
+  .toast-stack {
+    right: 16px;
+    bottom: 16px;
+    left: 16px;
+  }
+
+  .toast {
+    width: auto;
   }
 }
