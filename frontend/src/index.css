@@ -1,9 +1,40 @@
+/* Токены дизайна Everlog: единственный адрес цветов, радиусов и типографики. */
 :root {
-  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
-  line-height: 1.5;
-  color-scheme: light dark;
+  --bg-app: #0d0d0d;
+  --bg-sidebar: #121212;
+  --bg-input: #1f1f1f;
+
+  --accent-primary: #ffffff;
+  --accent-purple: #d455ff;
+  --accent-pink: #ff3d77;
+
+  --text-main: #ffffff;
+  --text-secondary: #8e8e93;
+  --text-tertiary: #48484a;
+
+  --divider: #2c2c2e;
+
+  --tag-blue: #0a84ff;
+  --tag-green: #30d158;
+  --tag-red: #ff453a;
+
+  --radius-pill: 999px;
+
+  color-scheme: dark;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  -webkit-font-smoothing: antialiased;
 }
 
 body {
-  margin: 0;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  background-color: var(--bg-app);
+  color: var(--text-main);
+  font-size: 14px;
+  line-height: 1.5;
+  letter-spacing: -0.01em;
 }

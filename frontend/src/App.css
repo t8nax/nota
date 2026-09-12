@@ -1,82 +1,320 @@
-.app {
-  max-width: 34rem;
-  margin: 0 auto;
-  padding: 2rem 1rem;
-  text-align: left;
+.layout {
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  height: 100vh;
+  width: 100%;
+  background: var(--bg-app);
 }
 
-h1 {
-  font-size: 1.6rem;
-  margin-bottom: 1.5rem;
+/* Сайдбар */
+
+.sidebar {
+  background-color: var(--bg-sidebar);
+  border-right: 1px solid var(--divider);
+  padding: 32px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--accent-pink);
+  font-weight: 800;
+  font-size: 18px;
+  padding: 0 12px;
+  letter-spacing: -0.03em;
+}
+
+.brand svg {
+  width: 28px;
+  height: 28px;
+  stroke-width: 2.5px;
+  flex: none;
+}
+
+.nav-group-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-tertiary);
+  font-weight: 700;
+  padding: 0 12px;
+  margin-bottom: 12px;
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  border-radius: var(--radius-pill);
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+.nav-item.active {
+  background-color: var(--accent-primary);
+  color: #000000;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+}
+
+.nav-item svg {
+  width: 20px;
+  height: 20px;
+  stroke-width: 2.2px;
+  flex: none;
+}
+
+/* Лента */
+
+.main-stream {
+  overflow-y: auto;
+  padding: 48px 64px;
+  background: var(--bg-app);
+}
+
+.header-area {
+  margin-bottom: 32px;
+}
+
+.current-month {
+  font-size: 40px;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  margin-bottom: 8px;
+  color: var(--text-main);
+}
+
+.header-subtitle {
+  color: var(--text-secondary);
+  font-weight: 500;
+  font-size: 16px;
 }
 
 .hint {
-  opacity: 0.7;
+  color: var(--text-secondary);
 }
 
 .error {
-  color: #b3261e;
+  color: var(--tag-red);
+  margin-top: 16px;
+  font-weight: 500;
 }
 
-.tasks {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-.task {
-  border: 1px solid rgba(127, 127, 127, 0.35);
-  border-radius: 0.5rem;
-}
-
-/* Отступы живут на label, чтобы кликом по всей строке переключалась отметка. */
-.task-label {
+.date-divider {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  margin: 40px 0 24px 0;
   display: flex;
   align-items: center;
-  gap: 0.75rem;
-  padding: 0.75rem 1rem;
+  gap: 16px;
+}
+
+.date-divider::after {
+  content: '';
+  height: 1px;
+  flex-grow: 1;
+  background: var(--divider);
+}
+
+/* Карточка задачи */
+
+.task-card {
+  position: relative;
+  padding: 16px 0 16px 28px;
+}
+
+.task-card::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 20%;
+  bottom: 20%;
+  width: 3px;
+  background-color: var(--divider);
+  border-radius: var(--radius-pill);
+  transition: background-color 0.3s;
+}
+
+.task-card:hover::before {
+  background-color: var(--accent-purple);
+}
+
+.task-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.status-tag {
+  text-transform: uppercase;
+  color: var(--tag-blue);
+}
+
+.status-tag.done {
+  color: var(--tag-green);
+}
+
+.task-time {
+  color: var(--text-tertiary);
+}
+
+.task-content {
+  display: flex;
+  gap: 16px;
+  align-items: center;
   cursor: pointer;
 }
 
-.task.done .title {
-  text-decoration: line-through;
-  opacity: 0.6;
+.checkbox {
+  appearance: none;
+  width: 22px;
+  height: 22px;
+  border: 2px solid var(--text-tertiary);
+  border-radius: var(--radius-pill);
+  cursor: inherit;
+  position: relative;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  flex-shrink: 0;
+  background: transparent;
+  margin: 0;
 }
 
-.marker {
-  width: 1rem;
-  height: 1rem;
-  flex: none;
-  cursor: inherit;
+.checkbox:checked {
+  background-color: var(--accent-purple);
+  border-color: var(--accent-purple);
 }
+
+.checkbox:checked::after {
+  content: '';
+  position: absolute;
+  left: 6px;
+  top: 3px;
+  width: 5px;
+  height: 9px;
+  border: solid white;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+
+.checkbox:disabled {
+  opacity: 0.5;
+  cursor: progress;
+}
+
+.task-text {
+  font-size: 17px;
+  font-weight: 500;
+  color: var(--text-main);
+  letter-spacing: -0.015em;
+}
+
+.checkbox:checked ~ .task-text {
+  color: var(--text-tertiary);
+  text-decoration: line-through;
+}
+
+/* Форма новой задачи */
 
 .new-task {
+  position: relative;
   display: flex;
-  gap: 0.5rem;
-  margin-bottom: 1rem;
+  align-items: center;
+  gap: 12px;
+}
+
+.new-task-icon {
+  position: absolute;
+  left: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-tertiary);
+  display: flex;
+  pointer-events: none;
 }
 
 .new-task-title {
   flex: 1;
-  padding: 0.6rem 0.75rem;
-  border: 1px solid rgba(127, 127, 127, 0.45);
-  border-radius: 0.5rem;
+  min-width: 0;
+  padding: 14px 16px 14px 44px;
+  background: var(--bg-input);
+  border: 1px solid transparent;
+  border-radius: var(--radius-pill);
   font: inherit;
-  background: transparent;
-  color: inherit;
+  color: var(--text-main);
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.new-task-title::placeholder {
+  color: var(--text-tertiary);
+}
+
+.new-task-title:focus {
+  border-color: var(--accent-purple);
 }
 
 .new-task button {
-  padding: 0.6rem 1rem;
-  border-radius: 0.5rem;
+  padding: 14px 24px;
+  border: none;
+  border-radius: var(--radius-pill);
+  background: var(--accent-primary);
+  color: #000000;
   font: inherit;
+  font-weight: 700;
   cursor: pointer;
+  transition: opacity 0.2s;
+  flex: none;
 }
 
 .new-task button:disabled {
   cursor: not-allowed;
-  opacity: 0.55;
+  opacity: 0.3;
+}
+
+@media (max-width: 1024px) {
+  .layout {
+    grid-template-columns: 80px 1fr;
+  }
+
+  .sidebar {
+    padding: 32px 12px;
+  }
+
+  .sidebar .nav-group-label,
+  .brand span,
+  .nav-item > span {
+    display: none;
+  }
+
+  .brand {
+    justify-content: center;
+    padding: 0;
+  }
+
+  .nav-item {
+    justify-content: center;
+    padding: 12px;
+    width: 44px;
+    height: 44px;
+    margin: 0 auto;
+  }
+
+  .main-stream {
+    padding: 32px 24px;
+  }
+
+  .current-month {
+    font-size: 32px;
+  }
 }

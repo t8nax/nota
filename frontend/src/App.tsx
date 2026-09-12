@@ -1,5 +1,10 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { createTask, fetchTasks, setTaskDone, type TaskResponse } from './api'
+import NewTaskForm from './components/NewTaskForm'
+import Sidebar from './components/Sidebar'
+import TaskStream from './components/TaskStream'
+import { formatMonthTitle } from './dates'
+import { plural } from './plural'
 import './App.css'
 
 type ListState =
@@ -7,14 +12,19 @@ type ListState =
   | { status: 'error'; message: string }
   | { status: 'ready'; tasks: TaskResponse[] }
 
+function describe(error: unknown): string {
+  return error instanceof Error ? error.message : String(error)
+}
+
 function App() {
   const [list, setList] = useState<ListState>({ status: 'loading' })
-  const [title, setTitle] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
   // Отметки переключаются независимо друг от друга, поэтому ждущих запросов может быть несколько.
   const [pending, setPending] = useState<ReadonlySet<string>>(new Set())
   const [toggleError, setToggleError] = useState<string | null>(null)
+
+  const monthTitle = useMemo(() => formatMonthTitle(new Date()), [])
 
   useEffect(() => {
     let cancelled = false
@@ -24,9 +34,7 @@ function App() {
         if (!cancelled) setList({ status: 'ready', tasks })
       })
       .catch((error: unknown) => {
-        if (!cancelled) {
-          setList({ status: 'error', message: error instanceof Error ? error.message : String(error) })
-        }
+        if (!cancelled) setList({ status: 'error', message: describe(error) })
       })
 
     return () => {
@@ -34,11 +42,7 @@ function App() {
     }
   }, [])
 
-  async function handleSubmit(event: FormEvent) {
-    event.preventDefault()
-
-    if (submitting) return
-
+  async function handleCreate(title: string): Promise<boolean> {
     setSubmitting(true)
     setSubmitError(null)
 
@@ -49,9 +53,12 @@ function App() {
       setList((current) =>
         current.status === 'ready' ? { status: 'ready', tasks: [created, ...current.tasks] } : current,
       )
-      setTitle('')
+
+      return true
     } catch (error: unknown) {
-      setSubmitError(error instanceof Error ? error.message : String(error))
+      setSubmitError(describe(error))
+
+      return false
     } finally {
       setSubmitting(false)
     }
@@ -72,64 +79,53 @@ function App() {
           : current,
       )
     } catch (error: unknown) {
-      setToggleError(error instanceof Error ? error.message : String(error))
+      setToggleError(describe(error))
     } finally {
       setPending((current) => {
         const next = new Set(current)
         next.delete(task.id)
+
         return next
       })
     }
   }
 
+  const tasks = list.status === 'ready' ? list.tasks : []
+  const remaining = tasks.filter((task) => !task.isDone).length
+
   return (
-    <main className="app">
-      <h1>Список дел</h1>
+    <div className="layout">
+      <Sidebar />
 
-      <form className="new-task" onSubmit={handleSubmit}>
-        <input
-          className="new-task-title"
-          value={title}
-          onChange={(event) => setTitle(event.target.value)}
-          placeholder="Что нужно сделать?"
-          aria-label="Заголовок новой задачи"
-          disabled={submitting}
-        />
-        <button type="submit" disabled={submitting || title.trim().length === 0}>
-          {submitting ? 'Добавляю…' : 'Добавить'}
-        </button>
-      </form>
+      <main className="main-stream">
+        <div className="header-area">
+          <h1 className="current-month">{monthTitle}</h1>
+          {tasks.length > 0 && (
+            <p className="header-subtitle">
+              {remaining === 0
+                ? 'Все задачи выполнены'
+                : `Осталось ${remaining} ${plural(remaining, { one: 'задача', few: 'задачи', many: 'задач' })}`}
+            </p>
+          )}
+        </div>
 
-      {submitError && <p className="error">{submitError}</p>}
+        <NewTaskForm submitting={submitting} onSubmit={handleCreate} />
 
-      {toggleError && <p className="error">{toggleError}</p>}
+        {submitError && <p className="error">{submitError}</p>}
 
-      {list.status === 'loading' && <p className="hint">Загрузка…</p>}
+        {toggleError && <p className="error">{toggleError}</p>}
 
-      {list.status === 'error' && <p className="error">{list.message}</p>}
+        {list.status === 'loading' && <p className="hint">Загрузка…</p>}
 
-      {list.status === 'ready' && list.tasks.length === 0 && <p className="hint">Задач пока нет.</p>}
+        {list.status === 'error' && <p className="error">{list.message}</p>}
 
-      {list.status === 'ready' && list.tasks.length > 0 && (
-        <ul className="tasks">
-          {list.tasks.map((task) => (
-            <li key={task.id} className={task.isDone ? 'task done' : 'task'}>
-              {/* Заголовок внутри label: он же служит доступным именем для отметки. */}
-              <label className="task-label">
-                <input
-                  type="checkbox"
-                  className="marker"
-                  checked={task.isDone}
-                  disabled={pending.has(task.id)}
-                  onChange={() => handleToggle(task)}
-                />
-                <span className="title">{task.title}</span>
-              </label>
-            </li>
-          ))}
-        </ul>
-      )}
-    </main>
+        {list.status === 'ready' && list.tasks.length === 0 && <p className="hint">Задач пока нет.</p>}
+
+        {list.status === 'ready' && list.tasks.length > 0 && (
+          <TaskStream tasks={list.tasks} pending={pending} onToggle={handleToggle} />
+        )}
+      </main>
+    </div>
   )
 }
 

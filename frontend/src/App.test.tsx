@@ -158,3 +158,55 @@ describe('отметка выполнения', () => {
     expect(screen.getByRole('checkbox', { name: 'Сдать отчёт' })).not.toBeChecked()
   })
 })
+
+describe('лента задач', () => {
+  beforeEach(() => {
+    vi.stubGlobal('fetch', vi.fn())
+  })
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it('разделяет задачи по дням создания и подписывает состояние', async () => {
+    const tasks = [
+      { id: '1', title: 'Сегодняшняя', isDone: false, createdAt: '2026-09-11T09:00:00' },
+      { id: '2', title: 'Вчерашняя', isDone: true, createdAt: '2026-09-10T18:30:00' },
+    ]
+    vi.mocked(fetch).mockResolvedValueOnce(jsonResponse(tasks))
+
+    render(<App />)
+
+    expect(await screen.findByText('Пятница, 11 сентября 2026 г.')).toBeInTheDocument()
+    expect(screen.getByText('Четверг, 10 сентября 2026 г.')).toBeInTheDocument()
+    expect(screen.getByText('18:30')).toBeInTheDocument()
+    expect(screen.getByText('Выполнено')).toBeInTheDocument()
+    expect(screen.getByText('В работе')).toBeInTheDocument()
+  })
+
+  it('считает в шапке невыполненные задачи', async () => {
+    const tasks = [
+      { id: '1', title: 'Первая', isDone: false, createdAt: '2026-09-11T09:00:00' },
+      { id: '2', title: 'Вторая', isDone: false, createdAt: '2026-09-11T10:00:00' },
+      { id: '3', title: 'Третья', isDone: true, createdAt: '2026-09-11T11:00:00' },
+    ]
+    vi.mocked(fetch).mockResolvedValueOnce(jsonResponse(tasks))
+
+    render(<App />)
+
+    expect(await screen.findByText('Осталось 2 задачи')).toBeInTheDocument()
+  })
+
+  it('после отметки последней задачи шапка говорит, что всё выполнено', async () => {
+    const task = { id: '1', title: 'Последняя', isDone: false, createdAt: '2026-09-11T09:00:00' }
+    const fetchMock = vi.mocked(fetch)
+    fetchMock.mockResolvedValueOnce(jsonResponse([task]))
+    fetchMock.mockResolvedValueOnce(jsonResponse({ ...task, isDone: true }))
+
+    render(<App />)
+
+    await userEvent.click(await screen.findByRole('checkbox', { name: 'Последняя' }))
+
+    expect(await screen.findByText('Все задачи выполнены')).toBeInTheDocument()
+  })
+})

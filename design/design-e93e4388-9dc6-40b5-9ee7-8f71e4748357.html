@@ -1,0 +1,477 @@
+<html lang="ru" vid="0"><head vid="1">
+    <meta charset="UTF-8" vid="2">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" vid="3">
+    <title vid="4">Everlog - Dark Edition</title>
+    <style vid="5">
+        :root {
+            --bg-app: #0D0D0D;
+            --bg-sidebar: #121212;
+            --bg-card: #181818;
+            --bg-input: #1F1F1F;
+            
+            --accent-primary: #FFFFFF;
+            --accent-purple: #D455FF;
+            --accent-pink: #FF3D77;
+            
+            --text-main: #FFFFFF;
+            --text-secondary: #8E8E93;
+            --text-tertiary: #48484A;
+            
+            --divider: #2C2C2E;
+            
+            --tag-blue: #0A84FF;
+            --tag-green: #30D158;
+            --tag-orange: #FF9F0A;
+            
+            --radius-sm: 8px;
+            --radius-md: 12px;
+            --radius-lg: 20px;
+            --radius-pill: 999px;
+            
+            --spacing-unit: 8px;
+            --container-max: 1200px;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-app);
+            color: var(--text-main);
+            font-size: 14px;
+            line-height: 1.5;
+            letter-spacing: -0.01em;
+        }
+
+        .layout {
+            display: grid;
+            grid-template-columns: 260px 1fr 320px;
+            height: 100vh;
+            width: 100%;
+            background: var(--bg-app);
+        }
+
+        
+        .sidebar {
+            background-color: var(--bg-sidebar);
+            border-right: 1px solid var(--divider);
+            padding: 32px 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 32px;
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            color: var(--accent-pink);
+            font-weight: 800;
+            font-size: 18px;
+            padding: 0 12px;
+            letter-spacing: -0.03em;
+        }
+
+        .brand svg {
+            width: 28px;
+            height: 28px;
+            stroke-width: 2.5px;
+        }
+
+        .nav-group-label {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--text-tertiary);
+            font-weight: 700;
+            padding: 0 12px;
+            margin-bottom: 12px;
+        }
+
+        .nav-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 16px;
+            border-radius: var(--radius-pill);
+            color: var(--text-secondary);
+            text-decoration: none;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+
+        .nav-item:hover {
+            color: var(--text-main);
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .nav-item.active {
+            background-color: var(--accent-primary);
+            color: #000000;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+        }
+
+        .nav-item svg {
+            width: 20px;
+            height: 20px;
+            stroke-width: 2.2px;
+        }
+
+        
+        .main-stream {
+            overflow-y: auto;
+            padding: 48px 64px;
+            background: var(--bg-app);
+        }
+
+        .header-area {
+            margin-bottom: 48px;
+        }
+
+        .current-month {
+            font-size: 40px;
+            font-weight: 800;
+            letter-spacing: -0.04em;
+            margin-bottom: 8px;
+            color: var(--text-main);
+        }
+
+        .date-divider {
+            font-size: 12px;
+            font-weight: 700;
+            color: var(--text-tertiary);
+            text-transform: uppercase;
+            letter-spacing: 0.12em;
+            margin: 40px 0 24px 0;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .date-divider::after {
+            content: "";
+            height: 1px;
+            flex-grow: 1;
+            background: var(--divider);
+        }
+
+        
+        .task-card {
+            position: relative;
+            padding: 16px 0 16px 28px;
+            transition: opacity 0.2s;
+        }
+
+        .task-card::before {
+            content: "";
+            position: absolute;
+            left: 0;
+            top: 20%;
+            bottom: 20%;
+            width: 3px;
+            background-color: var(--divider);
+            border-radius: var(--radius-pill);
+            transition: background-color 0.3s;
+        }
+
+        .task-card:hover::before {
+            background-color: var(--accent-purple);
+        }
+
+        .task-meta {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 8px;
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 0.02em;
+        }
+
+        .category-tag {
+            text-transform: uppercase;
+            padding: 2px 0;
+        }
+
+        .category-tag.work { color: var(--tag-blue); }
+        .category-tag.personal { color: var(--tag-orange); }
+        .category-tag.health { color: var(--tag-green); }
+
+        .task-time {
+            color: var(--text-tertiary);
+        }
+
+        .task-content {
+            display: flex;
+            gap: 16px;
+            align-items: center;
+        }
+
+        .checkbox {
+            appearance: none;
+            width: 22px;
+            height: 22px;
+            border: 2px solid var(--text-tertiary);
+            border-radius: var(--radius-pill);
+            cursor: pointer;
+            position: relative;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            flex-shrink: 0;
+            background: transparent;
+        }
+
+        .checkbox:checked {
+            background-color: var(--accent-purple);
+            border-color: var(--accent-purple);
+        }
+
+        .checkbox:checked::after {
+            content: "";
+            position: absolute;
+            left: 6px;
+            top: 3px;
+            width: 5px;
+            height: 9px;
+            border: solid white;
+            border-width: 0 2px 2px 0;
+            transform: rotate(45deg);
+        }
+
+        .task-text {
+            font-size: 17px;
+            font-weight: 500;
+            color: var(--text-main);
+            cursor: pointer;
+            letter-spacing: -0.015em;
+        }
+
+        .checkbox:checked ~ .task-text {
+            color: var(--text-tertiary);
+            text-decoration: line-through;
+        }
+
+        
+        .context-panel {
+            background-color: var(--bg-sidebar);
+            border-left: 1px solid var(--divider);
+            padding: 32px 24px;
+        }
+
+        .search-container {
+            position: relative;
+            margin-bottom: 40px;
+        }
+
+        .search-input {
+            width: 100%;
+            padding: 14px 16px 14px 44px;
+            background: var(--bg-input);
+            border: 1px solid transparent;
+            border-radius: var(--radius-pill);
+            font-size: 14px;
+            color: var(--text-main);
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        .search-input:focus {
+            border-color: var(--accent-purple);
+        }
+
+        .search-icon {
+            position: absolute;
+            left: 16px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-tertiary);
+        }
+
+        .calendar-header {
+            margin-bottom: 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .calendar-header span:first-child {
+            font-weight: 700;
+            font-size: 16px;
+            letter-spacing: -0.02em;
+        }
+
+        .calendar-header .today-btn {
+            color: var(--accent-purple);
+            font-size: 13px;
+            font-weight: 700;
+            cursor: pointer;
+        }
+
+        .mini-calendar {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 12px;
+            text-align: center;
+        }
+
+        .cal-day-label {
+            font-size: 10px;
+            font-weight: 800;
+            color: var(--text-tertiary);
+            text-transform: uppercase;
+        }
+
+        .cal-date {
+            font-size: 14px;
+            padding: 10px 0;
+            border-radius: var(--radius-pill);
+            cursor: pointer;
+            font-weight: 600;
+            color: var(--text-secondary);
+        }
+
+        @media (max-width: 1024px) {
+            .layout {
+                grid-template-columns: 80px 1fr;
+            }
+            .sidebar span, .sidebar .nav-group-label, .context-panel {
+                display: none;
+            }
+            .brand { justify-content: center; padding: 0; }
+            .nav-item { justify-content: center; padding: 12px; width: 44px; height: 44px; margin: 0 auto 8px; }
+            .nav-item svg { margin: 0; }
+        }
+    </style>
+</head>
+<body vid="6">
+
+    <div class="layout" vid="7">
+        
+        <aside class="sidebar" vid="8">
+            <div class="brand" vid="9">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" vid="10"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" stroke-linecap="round" stroke-linejoin="round" vid="11"></path></svg>
+                <span vid="12">Everlog</span>
+            </div>
+            
+            <nav style="margin-top: 12px;" vid="13">
+                <p class="nav-group-label" vid="14">Smart Lists</p>
+                <a href="#" class="nav-item active" vid="15">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" vid="16"><rect x="3" y="3" width="18" height="18" rx="2" ry="2" vid="17"></rect><line x1="3" y1="9" x2="21" y2="9" vid="18"></line><line x1="9" y1="21" x2="9" y2="9" vid="19"></line></svg>
+                    <span vid="20">All Tasks</span>
+                </a>
+                <a href="#" class="nav-item" vid="21">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" vid="22"><circle cx="12" cy="12" r="10" vid="23"></circle><polyline points="12 6 12 12 16 14" vid="24"></polyline></svg>
+                    <span vid="25">Today</span>
+                </a>
+            </nav>
+
+            <nav vid="26">
+                <p class="nav-group-label" vid="27">Categories</p>
+                <a href="#" class="nav-item" vid="28">
+                    <span style="width: 10px; height: 10px; border-radius: 50%; background: var(--tag-blue);" vid="29"></span>
+                    <span vid="30">Work</span>
+                </a>
+                <a href="#" class="nav-item" vid="31">
+                    <span style="width: 10px; height: 10px; border-radius: 50%; background: var(--tag-orange);" vid="32"></span>
+                    <span vid="33">Personal</span>
+                </a>
+                <a href="#" class="nav-item" vid="34">
+                    <span style="width: 10px; height: 10px; border-radius: 50%; background: var(--tag-green);" vid="35"></span>
+                    <span vid="36">Health</span>
+                </a>
+            </nav>
+        </aside>
+
+        <main class="main-stream" vid="37">
+            <div class="header-area" vid="38">
+                <h1 class="current-month" vid="39">October 2022</h1>
+                <p style="color: var(--text-secondary); font-weight: 500; font-size: 16px;" vid="40">You have 4 tasks for today</p>
+            </div>
+
+            <div class="date-divider" vid="41">Wednesday 26 October 2022</div>
+
+            <div class="task-card" vid="42">
+                <div class="task-meta" vid="43">
+                    <span class="category-tag personal" vid="44">Personal</span>
+                    <span class="task-time" vid="45">8:30 AM</span>
+                </div>
+                <div class="task-content" vid="46">
+                    <input type="checkbox" class="checkbox" vid="47">
+                    <label class="task-text" vid="48">Buy ingredients for the beach picnic</label>
+                </div>
+            </div>
+
+            <div class="task-card" vid="49">
+                <div class="task-meta" vid="50">
+                    <span class="category-tag health" vid="51">Health</span>
+                    <span class="task-time" vid="52">6:15 PM</span>
+                </div>
+                <div class="task-content" vid="53">
+                    <input type="checkbox" class="checkbox" vid="54">
+                    <label class="task-text" vid="55">Morning yoga session and stretching</label>
+                </div>
+            </div>
+
+            <div class="date-divider" vid="56">Tuesday 25 October 2022</div>
+
+            <div class="task-card" vid="57">
+                <div class="task-meta" vid="58">
+                    <span class="category-tag work" vid="59">Work</span>
+                    <span class="task-time" vid="60">9:00 AM</span>
+                </div>
+                <div class="task-content" vid="61">
+                    <input type="checkbox" class="checkbox" checked="" vid="62">
+                    <label class="task-text" vid="63">Submit the new design system proposal for Everlog</label>
+                </div>
+            </div>
+
+            <div class="task-card" vid="64">
+                <div class="task-meta" vid="65">
+                    <span class="category-tag work" vid="66">Work</span>
+                    <span class="task-time" vid="67">2:30 PM</span>
+                </div>
+                <div class="task-content" vid="68">
+                    <input type="checkbox" class="checkbox" vid="69">
+                    <label class="task-text" vid="70">Review feedback from the dev team on App Store publishing</label>
+                </div>
+            </div>
+            
+            <div class="task-card" vid="71">
+                <div class="task-meta" vid="72">
+                    <span class="category-tag personal" vid="73">Personal</span>
+                    <span class="task-time" vid="74">7:00 PM</span>
+                </div>
+                <div class="task-content" vid="75">
+                    <input type="checkbox" class="checkbox" vid="76">
+                    <label class="task-text" vid="77">Finish watching The Morning Show finale</label>
+                </div>
+            </div>
+        </main>
+
+        <aside class="context-panel" vid="78">
+            <div class="search-container" vid="79">
+                <svg class="search-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" vid="80"><circle cx="11" cy="11" r="8" vid="81"></circle><line x1="21" y1="21" x2="16.65" y2="16.65" vid="82"></line></svg>
+                <input type="text" class="search-input" placeholder="Search tasks..." vid="83">
+            </div>
+
+            <div class="calendar-header" vid="84">
+                <span vid="85">Calendar</span>
+                <span class="today-btn" vid="86">Today</span>
+            </div>
+
+            <div class="mini-calendar" vid="87">
+                <span class="cal-day-label" vid="88">S</span>
+                <span class="cal-day-label" vid="89">M</span>
+                <span class="cal-day-label" vid="90">T</span>
+                <span class="cal-day-label" vid="91">W</span>
+                
+            </div>
+        </aside>
+    </div>
+
+</body></html>
