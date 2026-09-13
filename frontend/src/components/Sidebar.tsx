@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 import type { ProjectResponse } from '../api'
 import type { View } from '../grouping'
 import ProjectNav from './ProjectNav'
@@ -54,7 +54,11 @@ function isOpen(view: View, candidate: View): boolean {
   return view.kind === candidate.kind
 }
 
-/** Левая колонка: бренд, общие экраны ленты и список проектов. */
+/**
+ * Левая колонка: бренд, общие экраны ленты и список проектов. На узком экране она
+ * сжата до знаков, и кнопка под брендом раскрывает её до полной; на широком экране
+ * кнопка скрыта стилями, а колонка всегда полная.
+ */
 function Sidebar({
   view,
   projects,
@@ -63,8 +67,10 @@ function Sidebar({
   onRenameProject,
   onDeleteProject,
 }: SidebarProps) {
+  const [expanded, setExpanded] = useState(false)
+
   return (
-    <aside className="sidebar">
+    <aside className={expanded ? 'sidebar expanded' : 'sidebar'}>
       <div className="brand">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
           <path
@@ -75,6 +81,20 @@ function Sidebar({
         </svg>
         <span>Nota</span>
       </div>
+
+      <button
+        type="button"
+        className="sidebar-toggle"
+        aria-label={expanded ? 'Свернуть колонку' : 'Раскрыть колонку'}
+        aria-expanded={expanded}
+        onClick={() => setExpanded((current) => !current)}
+      >
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
+          <line x1="4" y1="6" x2="20" y2="6" />
+          <line x1="4" y1="12" x2="20" y2="12" />
+          <line x1="4" y1="18" x2="20" y2="18" />
+        </svg>
+      </button>
 
       <nav aria-label="Списки">
         <p className="nav-group-label">Списки</p>
