@@ -85,10 +85,12 @@ test('пункты левой колонки разнесены, как в ма�
   await page.goto('/')
 
   const lists = page.getByRole('navigation', { name: 'Списки' })
+  const inbox = lists.getByRole('button', { name: 'Входящие' })
   const today = lists.getByRole('button', { name: 'Сегодня' })
   const all = lists.getByRole('button', { name: 'Все задачи' })
 
-  expect(await gapBetween(lists.getByText('Списки'), today)).toBe(NAV_LABEL_GAP)
+  expect(await gapBetween(lists.getByText('Списки'), inbox)).toBe(NAV_LABEL_GAP)
+  expect(await gapBetween(inbox, today)).toBe(NAV_ITEM_GAP)
   expect(await gapBetween(today, all)).toBe(NAV_ITEM_GAP)
 
   const projectNav = page.getByRole('navigation', { name: 'Проекты' })
@@ -100,6 +102,40 @@ test('пункты левой колонки разнесены, как в ма�
   expect(await gapBetween(second, projectNav.getByRole('button', { name: 'Добавить проект' }))).toBe(
     NAV_ITEM_GAP,
   )
+})
+
+test('пункт «Входящие» нарисован как остальные пункты колонки', async ({ page }) => {
+  await stubProjectList(page)
+  await stubTaskList(page)
+  await page.goto('/')
+
+  const lists = page.getByRole('navigation', { name: 'Списки' })
+  const inbox = lists.getByRole('button', { name: 'Входящие' })
+  const icon = inbox.locator('svg')
+
+  expect(await box(lists.getByRole('button').first())).toEqual(await box(inbox))
+  expect(await box(icon)).toMatchObject({ width: 20, height: 20 })
+  await expect(icon).toHaveCSS('stroke-width', '2.2px')
+  await expect(icon).toHaveCSS('fill', 'none')
+
+  await inbox.click()
+
+  await expect(inbox).toHaveCSS('background-color', 'rgb(255, 255, 255)')
+  await expect(inbox).toHaveCSS('box-shadow', 'rgba(0, 0, 0, 0.5) 0px 4px 12px 0px')
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Входящие')
+})
+
+test('на узком экране пункт «Входящие» сжимается до знака', async ({ page }) => {
+  await page.setViewportSize({ width: 1024, height: 800 })
+  await stubProjectList(page)
+  await stubTaskList(page)
+  await page.goto('/')
+
+  // Скрытая подпись уносит и имя кнопки, поэтому пункт ищется по месту.
+  const inbox = page.getByRole('navigation', { name: 'Списки' }).locator('.nav-item').first()
+
+  await expect(inbox.locator('span', { hasText: 'Входящие' })).toBeHidden()
+  expect(await box(inbox)).toMatchObject({ width: 44, height: 44 })
 })
 
 test('чип проекта стоит у правого края задачи на линии заголовка', async ({ page }) => {
