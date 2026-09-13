@@ -262,7 +262,15 @@ function App() {
 
   // Заголовок экрана: у проекта это его имя, у общих лент — имя пункта колонки.
   const title =
-    view.kind === 'today' ? 'Сегодня' : view.kind === 'project' ? (openProject?.name ?? '') : 'Все задачи'
+    view.kind === 'today'
+      ? 'Сегодня'
+      : view.kind === 'inbox'
+        ? 'Входящие'
+        : view.kind === 'project'
+          ? (openProject?.name ?? '')
+          : 'Все задачи'
+
+  const emptyText = view.kind === 'inbox' ? 'Во входящих пусто.' : 'Задач пока нет.'
 
   // Задача, заведённая на экране «Сегодня», по умолчанию на сегодня: иначе она
   // сразу пропадала бы с экрана, на котором её завели.
@@ -301,7 +309,7 @@ function App() {
           {list.status === 'error' && <p className="error">{list.message}</p>}
 
           {list.status === 'ready' && visible.length === 0 && (
-            <p className="hint">Задач пока нет.</p>
+            <p className="hint">{emptyText}</p>
           )}
 
           {list.status === 'ready' && visible.length > 0 && (

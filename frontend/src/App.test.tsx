@@ -689,6 +689,92 @@ describe('раздел «Сегодня»', () => {
   })
 })
 
+describe('раздел «Входящие»', () => {
+  async function openInbox() {
+    await userEvent.click(screen.getByRole('button', { name: 'Входящие' }))
+  }
+
+  it('стоит первым пунктом списков в левой колонке', async () => {
+    stubFetch([jsonResponse([])])
+
+    render(<App />)
+    await screen.findByText('Задач пока нет.')
+
+    const lists = within(screen.getByRole('navigation', { name: 'Списки' })).getAllByRole('button')
+    expect(lists.map((button) => button.textContent)).toEqual(['Входящие', 'Сегодня', 'Все задачи'])
+  })
+
+  it('оставляет задачи без проекта с любым сроком в порядке ленты', async () => {
+    const home = projectJson('Дом')
+    stubFetch(
+      [jsonResponse([
+        taskJson('Просроченная', false, '2026-09-10'),
+        taskJson('Домашняя', false, TODAY, null, home.id),
+        taskJson('Завтрашняя', false, '2026-09-13'),
+        taskJson('Бессрочная'),
+      ])],
+      [home],
+    )
+
+    render(<App />)
+    await screen.findByText('Завтрашняя')
+    await openInbox()
+
+    expect(screen.queryByText('Домашняя')).toBeNull()
+    expect(screen.getAllByRole('heading', { level: 2 }).map((h) => h.textContent)).toEqual([
+      'Просрочено',
+      'Завтра',
+      'Без срока',
+    ])
+  })
+
+  it('подписывает экран только остатком задач, без даты', async () => {
+    stubFetch([jsonResponse([taskJson('Сегодняшняя', false, TODAY), taskJson('Бессрочная')])])
+
+    render(<App />)
+    await screen.findByText('Бессрочная')
+    await openInbox()
+
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Входящие')
+    expect(document.querySelector('.header-subtitle')).toHaveTextContent(/^Осталось 2 задачи$/)
+    expect(screen.getByRole('button', { name: 'Входящие' })).toHaveAttribute('aria-current', 'page')
+  })
+
+  it('без задач говорит «Во входящих пусто.»', async () => {
+    const home = projectJson('Дом')
+    stubFetch([jsonResponse([taskJson('Домашняя', false, null, null, home.id)])], [home])
+
+    render(<App />)
+    await screen.findByText('Домашняя')
+    await openInbox()
+
+    expect(screen.getByText('Во входящих пусто.')).toBeInTheDocument()
+    expect(screen.queryByText('Задач пока нет.')).toBeNull()
+    expect(screen.queryByText(/Осталось/)).toBeNull()
+  })
+
+  it('форма не подставляет ни проекта, ни срока', async () => {
+    const created = taskJson('Разобрать почту')
+    stubFetch([jsonResponse([]), jsonResponse(created, 201), jsonResponse([created])])
+
+    render(<App />)
+    await screen.findByText('Задач пока нет.')
+    await openInbox()
+
+    expect(screen.getByLabelText('Дата срока')).toHaveTextContent('Срок')
+
+    await userEvent.type(screen.getByLabelText('Заголовок новой задачи'), 'Разобрать почту')
+    await userEvent.click(screen.getByRole('button', { name: 'Добавить' }))
+
+    await screen.findByText('Разобрать почту')
+
+    const [postCall] = callsWith('POST')
+    expect(postCall[1]).toMatchObject({
+      body: JSON.stringify({ title: 'Разобрать почту', dueDate: null, dueTime: null, projectId: null }),
+    })
+  })
+})
+
 describe('экран проекта', () => {
   it('показывает проекты в левой колонке', async () => {
     const projects = [projectJson('Дом'), projectJson('Работа')]
