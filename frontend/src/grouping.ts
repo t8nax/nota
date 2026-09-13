@@ -55,8 +55,12 @@ export function groupByDue(tasks: TaskResponse[], now: Date = new Date()): DueGr
   return groups
 }
 
-/** Экран ленты: два общих списка и лента отдельного проекта. */
-export type View = { kind: 'all' } | { kind: 'today' } | { kind: 'project'; projectId: string }
+/** Экран ленты: общие списки и лента отдельного проекта. */
+export type View =
+  | { kind: 'inbox' }
+  | { kind: 'all' }
+  | { kind: 'today' }
+  | { kind: 'project'; projectId: string }
 
 /**
  * Оставляет задачи, которые попадают на экран. Порядок не меняется: его считает
@@ -68,6 +72,9 @@ export function filterForView(tasks: TaskResponse[], view: View, now: Date = new
   const open = tasks.filter((task) => !task.isDone)
 
   if (view.kind === 'all') return open
+
+  // «Входящие» — задачи без проекта, срок значения не имеет.
+  if (view.kind === 'inbox') return open.filter((task) => task.projectId === null)
 
   if (view.kind === 'project') return open.filter((task) => task.projectId === view.projectId)
 

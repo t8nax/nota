@@ -90,6 +90,21 @@ describe('фильтр экрана', () => {
     ])
   })
 
+  it('во «Входящих» оставляет задачи без проекта с любым сроком', () => {
+    const tasks = [
+      task('вчера', '2026-09-11'),
+      task('домашняя', '2026-09-12', null, 'дом'),
+      task('через неделю', '2026-09-19'),
+      task('без срока'),
+    ]
+
+    expect(filterForView(tasks, { kind: 'inbox' }, NOW).map((t) => t.id)).toEqual([
+      'вчера',
+      'через неделю',
+      'без срока',
+    ])
+  })
+
   it('выполненные задачи не попадают ни на один экран', () => {
     const tasks = [
       task('открытая сегодня', '2026-09-12'),
@@ -99,5 +114,6 @@ describe('фильтр экрана', () => {
 
     expect(filterForView(tasks, { kind: 'all' }, NOW).map((t) => t.id)).toEqual(['открытая сегодня'])
     expect(filterForView(tasks, { kind: 'today' }, NOW).map((t) => t.id)).toEqual(['открытая сегодня'])
+    expect(filterForView(tasks, { kind: 'inbox' }, NOW).map((t) => t.id)).toEqual(['открытая сегодня'])
   })
 })
