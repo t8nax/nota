@@ -15,6 +15,7 @@
   display: flex;
   flex-direction: column;
   gap: 32px;
+  overflow-y: auto;
 }
 
 .brand {
@@ -35,11 +36,10 @@
   flex: none;
 }
 
-/* Отступ пункта и зазор раздела складываются: между пунктами 8px, от подписи — 16px. */
+/* Зазора у раздела нет: пункты разносит их собственный отступ, 4px, а от подписи — её 12px. */
 .sidebar nav {
   display: flex;
   flex-direction: column;
-  gap: 4px;
 }
 
 .nav-group-label {
@@ -117,11 +117,6 @@
   cursor: pointer;
 }
 
-.project-row:hover .project-menu-button,
-.project-menu-button:focus-visible {
-  color: var(--text-main);
-}
-
 .nav-item.active + .project-menu-button {
   color: rgba(0, 0, 0, 0.6);
 }
@@ -154,6 +149,7 @@
   font-size: 14px;
   color: var(--text-main);
   text-align: left;
+  white-space: nowrap;
   cursor: pointer;
 }
 
@@ -237,7 +233,7 @@
 
 .project-input:focus {
   outline: none;
-  border-color: var(--accent-purple);
+  border-color: var(--accent-primary);
 }
 
 .project-form-submit {
@@ -248,7 +244,7 @@
   background: var(--accent-primary);
   font: inherit;
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 700;
   color: #000000;
   cursor: pointer;
 }
@@ -263,6 +259,7 @@
    с клавиатуры, — иначе положить такую задачу в проект было бы нечем. */
 .task-item .project-slot-empty {
   opacity: 0;
+  transition: opacity 0.2s;
 }
 
 .task-item:hover .project-slot-empty,
@@ -441,16 +438,10 @@
   font-weight: 700;
   color: var(--tag-red);
   cursor: pointer;
-  transition: color 0.2s;
 }
 
 .toast.done .toast-action {
   color: var(--tag-green);
-}
-
-.toast-action:hover,
-.toast.done .toast-action:hover {
-  color: var(--text-main);
 }
 
 .toast-close {
@@ -511,13 +502,14 @@
 }
 
 .task-card:hover::before {
-  background-color: var(--accent-purple);
+  background-color: var(--accent-primary);
 }
 
 .task-meta {
   display: flex;
   align-items: center;
   gap: 10px;
+  min-height: 17px;
   margin-bottom: 8px;
   font-size: 11px;
   font-weight: 700;
@@ -554,8 +546,9 @@
   font-size: 12px;
 }
 
+/* Попап встаёт под всю строку задачи, а не под чип: 18px до низа строки и 4px зазора. */
 .task-project .due-popover {
-  top: calc(100% + 10px);
+  top: calc(100% + 22px);
 }
 
 .due-popover.align-right {
@@ -593,8 +586,8 @@
 }
 
 .checkbox:checked {
-  background-color: var(--accent-purple);
-  border-color: var(--accent-purple);
+  background-color: var(--accent-blue);
+  border-color: var(--accent-blue);
 }
 
 .checkbox:checked::after {
@@ -689,7 +682,7 @@
 }
 
 .due-chip[aria-expanded='true'] {
-  border-color: var(--accent-purple);
+  border-color: var(--accent-primary);
 }
 
 .due-chip:disabled {
@@ -735,6 +728,7 @@
   font-size: 14px;
   color: var(--text-secondary);
   text-align: left;
+  white-space: nowrap;
   cursor: pointer;
 }
 
@@ -817,14 +811,20 @@
   color: var(--text-tertiary);
 }
 
+/* Синий календарю не достаётся: сегодня обведено серым, выбранный день — таблетка
+   цвета поля, как кнопки «Сегодня» и «Завтра» под сеткой. */
 .cal-date.today {
-  color: var(--accent-purple);
+  color: var(--text-main);
+  font-weight: 700;
+  box-shadow: inset 0 0 0 1px var(--divider);
 }
 
 .cal-date.selected,
 .cal-date.selected:hover {
-  background: var(--accent-purple);
-  color: #ffffff;
+  background: var(--bg-input);
+  color: var(--text-main);
+  font-weight: 700;
+  box-shadow: none;
 }
 
 .popover-actions {
@@ -876,7 +876,7 @@
 }
 
 .time-exact:focus {
-  border-color: var(--accent-purple);
+  border-color: var(--accent-primary);
 }
 
 /* Нативная кнопка списка времени рисуется браузером и стилю не подчиняется. */
@@ -912,8 +912,9 @@
 
 .time-slot.selected,
 .time-slot.selected:hover {
-  background: var(--accent-purple);
-  color: #ffffff;
+  background: var(--bg-input);
+  color: var(--text-main);
+  font-weight: 700;
 }
 
 .new-task-icon {
@@ -944,7 +945,7 @@
 }
 
 .new-task-title:focus {
-  border-color: var(--accent-purple);
+  border-color: var(--accent-primary);
 }
 
 .new-task-submit {

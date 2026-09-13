@@ -6,7 +6,7 @@
   --bg-input: #1f1f1f;
 
   --accent-primary: #ffffff;
-  --accent-purple: #d455ff;
+  --accent-blue: #0a84ff;
   --accent-pink: #ff3d77;
 
   --text-main: #ffffff;
@@ -31,6 +31,12 @@
   padding: 0;
   box-sizing: border-box;
   -webkit-font-smoothing: antialiased;
+}
+
+/* Все глифы Nota — контуры со скруглёнными концами и стыками. */
+svg {
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 body {

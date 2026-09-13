@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState, type FocusEvent, type FormEvent } from 'react'
+import { useState, type FocusEvent, type FormEvent } from 'react'
 import type { ProjectResponse } from '../api'
 import type { View } from '../grouping'
+import { useDismiss } from '../useDismiss'
 
 interface ProjectNavProps {
   projects: readonly ProjectResponse[]
@@ -23,27 +24,12 @@ function ProjectNav({ projects, view, onSelect, onCreate, onRename, onDelete }: 
   const [mode, setMode] = useState<Mode>({ kind: 'idle' })
   const [menuFor, setMenuFor] = useState<string | null>(null)
   const [name, setName] = useState('')
-  const root = useRef<HTMLElement>(null)
-
-  useEffect(() => {
-    if (menuFor === null) return
-
-    function handlePointerDown(event: MouseEvent) {
-      if (!root.current?.contains(event.target as Node)) setMenuFor(null)
-    }
-
-    function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === 'Escape') setMenuFor(null)
-    }
-
-    document.addEventListener('mousedown', handlePointerDown)
-    document.addEventListener('keydown', handleKeyDown)
-
-    return () => {
-      document.removeEventListener('mousedown', handlePointerDown)
-      document.removeEventListener('keydown', handleKeyDown)
-    }
-  }, [menuFor])
+  // Меню и подтверждение удаления висят над строкой своего проекта: мимо неё они
+  // закрываются, а ввод имени — свой режим, и его этот сброс не касается.
+  const openRow = useDismiss<HTMLDivElement>(menuFor !== null || mode.kind === 'deleting', () => {
+    setMenuFor(null)
+    setMode((current) => (current.kind === 'deleting' ? { kind: 'idle' } : current))
+  })
 
   function startCreating() {
     setMenuFor(null)
@@ -99,7 +85,7 @@ function ProjectNav({ projects, view, onSelect, onCreate, onRename, onDelete }: 
   }
 
   return (
-    <nav aria-label="Проекты" ref={root}>
+    <nav aria-label="Проекты">
       <p className="nav-group-label">Проекты</p>
 
       {projects.map((project) => {
@@ -111,7 +97,15 @@ function ProjectNav({ projects, view, onSelect, onCreate, onRename, onDelete }: 
         }
 
         return (
-          <div key={project.id} className="project-row">
+          <div
+            key={project.id}
+            className="project-row"
+            ref={
+              menuFor === project.id || (mode.kind === 'deleting' && mode.id === project.id)
+                ? openRow
+                : undefined
+            }
+          >
             <button
               type="button"
               className={open ? 'nav-item active' : 'nav-item'}

@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState } from 'react'
+import { useState } from 'react'
 import type { DueInput } from '../api'
 import { dateKey, formatShortDay } from '../dates'
+import { useDismiss } from '../useDismiss'
 import DatePopover from './DatePopover'
 import TimePopover from './TimePopover'
 
@@ -27,32 +28,12 @@ function dateLabel(date: string): string {
 /** Срок задачи двумя полями со своими попапами: день и время внутри дня. */
 function DuePicker({ value, disabled, onDateChange, onTimeChange }: DuePickerProps) {
   const [opened, setOpened] = useState<OpenedPopover>(null)
-  const root = useRef<HTMLDivElement>(null)
+  const root = useDismiss<HTMLDivElement>(opened !== null, () => setOpened(null))
 
   // Форма блокируется на время отправки, и попап закрывается вместе с ней: иначе
   // после удачного создания он висел бы над уже пустыми полями. Сброс идёт в рендере,
   // а не эффектом: лишний кадр с открытым попапом над заблокированной формой не нужен.
   if (disabled && opened !== null) setOpened(null)
-
-  useEffect(() => {
-    if (opened === null) return
-
-    function handlePointerDown(event: MouseEvent) {
-      if (!root.current?.contains(event.target as Node)) setOpened(null)
-    }
-
-    function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === 'Escape') setOpened(null)
-    }
-
-    document.addEventListener('mousedown', handlePointerDown)
-    document.addEventListener('keydown', handleKeyDown)
-
-    return () => {
-      document.removeEventListener('mousedown', handlePointerDown)
-      document.removeEventListener('keydown', handleKeyDown)
-    }
-  }, [opened])
 
   function toggle(popover: Exclude<OpenedPopover, null>) {
     setOpened((current) => (current === popover ? null : popover))

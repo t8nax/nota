@@ -982,6 +982,47 @@ describe('ведение проектов', () => {
     expect(callsWith('DELETE')).toHaveLength(0)
   })
 
+  it('закрывает подтверждение удаления по Escape, клику мимо и уходу фокуса', async () => {
+    const home = projectJson('Дом')
+    stubFetch([jsonResponse([])], [home])
+
+    render(<App />)
+
+    async function askDelete() {
+      await openMenu('Дом')
+      await userEvent.click(screen.getByRole('menuitem', { name: 'Удалить' }))
+      expect(screen.getByRole('dialog', { name: 'Удаление проекта' })).toBeInTheDocument()
+    }
+
+    await askDelete()
+    await userEvent.keyboard('{Escape}')
+    expect(screen.queryByRole('dialog', { name: 'Удаление проекта' })).toBeNull()
+
+    await askDelete()
+    await userEvent.click(screen.getByRole('heading', { level: 1 }))
+    expect(screen.queryByRole('dialog', { name: 'Удаление проекта' })).toBeNull()
+
+    await askDelete()
+    screen.getByLabelText('Заголовок новой задачи').focus()
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Удаление проекта' })).toBeNull())
+
+    expect(callsWith('DELETE')).toHaveLength(0)
+  })
+
+  it('закрывает попап срока, когда фокус ушёл из него', async () => {
+    stubFetch([jsonResponse([])])
+
+    render(<App />)
+    await screen.findByText('Задач пока нет.')
+
+    await userEvent.click(screen.getByLabelText('Дата срока'))
+    expect(screen.getByRole('dialog', { name: 'Выбор даты срока' })).toBeInTheDocument()
+
+    screen.getByLabelText('Заголовок новой задачи').focus()
+
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Выбор даты срока' })).toBeNull())
+  })
+
   it('удаляет проект вместе с его задачами и возвращает на «Все задачи»', async () => {
     const home = projectJson('Дом')
     stubFetch(

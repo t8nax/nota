@@ -2,8 +2,8 @@ import { expect, test, type Locator } from '@playwright/test'
 import { projects, stubProjectList, stubTaskList, undatedTasks } from './api-stub.ts'
 
 /**
- * Раскладка экрана по макету из handoff. Числа взяты из разметки макета и
- * компонентов его дизайн-системы, а сравниваются с тем, что нарисовал браузер.
+ * Раскладка экрана по «Nota Design System»: числа взяты из шаблона экрана и
+ * компонентов системы, а сравниваются с тем, что нарисовал браузер.
  */
 
 const [home, other] = projects
@@ -13,11 +13,11 @@ const CONTENT_WIDTH = 760
 /** От формы до ленты. */
 const FORM_GAP = 40
 /** Между пунктами левой колонки и от подписи раздела до первого пункта. */
-const NAV_ITEM_GAP = 8
-const NAV_LABEL_GAP = 16
-/** Чип проекта у карточки: от низа строки задачи и зазор до его попапа. */
+const NAV_ITEM_GAP = 4
+const NAV_LABEL_GAP = 12
+/** Чип проекта у карточки: от низа строки задачи; попап встаёт на 4px ниже строки. */
 const TASK_CHIP_BOTTOM = 18
-const TASK_POPOVER_GAP = 10
+const TASK_POPOVER_GAP = TASK_CHIP_BOTTOM + 4
 /** Зазор от чипа формы до его попапа. */
 const FORM_POPOVER_GAP = 16
 
@@ -79,7 +79,7 @@ test('первая группа ленты отстоит от формы так
   expect(await gapBetween(page.locator('.new-task'), divider)).toBe(FORM_GAP)
 })
 
-test('пункты левой колонки разнесены, как в макете', async ({ page }) => {
+test('пункты левой колонки разнесены, как в системе', async ({ page }) => {
   await stubProjectList(page, projects)
   await stubTaskList(page)
   await page.goto('/')
@@ -187,6 +187,29 @@ test('попап проекта у задачи прижат к правому �
 
   expect(Math.abs(popoverBox.x + popoverBox.width - (chipBox.x + chipBox.width))).toBeLessThanOrEqual(1)
   expect(await gapBetween(chip, popover)).toBe(TASK_POPOVER_GAP)
+})
+
+test('фокус и открытый попап отмечены белым, выбранный день — цветом поля', async ({ page }) => {
+  await stubProjectList(page)
+  await stubTaskList(page)
+  await page.goto('/')
+
+  const title = page.getByLabel('Заголовок новой задачи')
+  await title.focus()
+  await expect(title).toHaveCSS('border-color', 'rgb(255, 255, 255)')
+
+  await page.getByRole('button', { name: 'Все задачи' }).click()
+  await page.getByRole('button', { name: 'Сегодня' }).click()
+
+  const chip = page.getByRole('button', { name: 'Дата срока' })
+  await chip.click()
+  await expect(chip).toHaveCSS('border-color', 'rgb(255, 255, 255)')
+
+  // На «Сегодня» форма подставляет сегодняшний срок: выбранный день и сегодня совпадают.
+  const selected = page.getByRole('dialog', { name: 'Выбор даты срока' }).locator('.cal-date.selected')
+  await expect(selected).toHaveCSS('background-color', 'rgb(31, 31, 31)')
+  await expect(selected).toHaveCSS('color', 'rgb(255, 255, 255)')
+  await expect(selected).toHaveCSS('font-weight', '700')
 })
 
 test('попап чипа формы открывается с зазором макета', async ({ page }) => {

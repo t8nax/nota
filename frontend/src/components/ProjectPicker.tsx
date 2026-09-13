@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState } from 'react'
+import { useState } from 'react'
 import type { ProjectResponse } from '../api'
+import { useDismiss } from '../useDismiss'
 
 interface ProjectPickerProps {
   projects: readonly ProjectResponse[]
@@ -18,30 +19,10 @@ const NO_PROJECT = 'Входящие'
 /** Выбор проекта чипом с попапом: тем же способом задаются срок и его время. */
 function ProjectPicker({ projects, value, label, disabled = false, align = 'left', onPick }: ProjectPickerProps) {
   const [opened, setOpened] = useState(false)
-  const root = useRef<HTMLDivElement>(null)
+  const root = useDismiss<HTMLDivElement>(opened, () => setOpened(false))
 
   // Форма блокируется на время отправки, и попап закрывается вместе с ней.
   if (disabled && opened) setOpened(false)
-
-  useEffect(() => {
-    if (!opened) return
-
-    function handlePointerDown(event: MouseEvent) {
-      if (!root.current?.contains(event.target as Node)) setOpened(false)
-    }
-
-    function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === 'Escape') setOpened(false)
-    }
-
-    document.addEventListener('mousedown', handlePointerDown)
-    document.addEventListener('keydown', handleKeyDown)
-
-    return () => {
-      document.removeEventListener('mousedown', handlePointerDown)
-      document.removeEventListener('keydown', handleKeyDown)
-    }
-  }, [opened])
 
   const current = projects.find((project) => project.id === value)
 
