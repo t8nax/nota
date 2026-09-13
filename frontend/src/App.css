@@ -195,6 +195,10 @@
   color: var(--text-main);
 }
 
+.project-input::placeholder {
+  color: var(--text-tertiary);
+}
+
 .project-input:focus {
   outline: none;
   border-color: var(--accent-purple);
@@ -275,8 +279,16 @@
   font-size: 16px;
 }
 
+/* Форма и лента не шире строки, которую удобно читать: на широком экране справа
+   остаётся пустое поле, а не растянутые на весь экран карточки. */
+.stream-content {
+  max-width: 760px;
+}
+
 .hint {
   color: var(--text-secondary);
+  font-size: 16px;
+  font-weight: 500;
 }
 
 .error {
@@ -377,20 +389,25 @@
   color: var(--text-main);
 }
 
-/* Кнопка действия: та же высота, что у текста, и заметнее закрытия. */
+/* Кнопка действия: та же высота, что у текста, заметнее закрытия и в тоне попапа. */
 .toast-action {
   flex: none;
   padding: 0;
   border: none;
   background: transparent;
   font: inherit;
-  font-weight: 600;
-  color: var(--accent-purple);
+  font-weight: 700;
+  color: var(--tag-red);
   cursor: pointer;
   transition: color 0.2s;
 }
 
-.toast-action:hover {
+.toast.done .toast-action {
+  color: var(--tag-green);
+}
+
+.toast-action:hover,
+.toast.done .toast-action:hover {
   color: var(--text-main);
 }
 
@@ -465,9 +482,38 @@
   letter-spacing: 0.02em;
 }
 
-.status-tag {
-  text-transform: uppercase;
-  color: var(--tag-blue);
+/* Заголовок и чип проекта в одной строке: заголовок сжимается и переносится,
+   чип не сжимается и стоит у правого края — наезда быть не может. */
+.task-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.task-row .task-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.task-row .task-text {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.task-row .due-slot {
+  flex: none;
+}
+
+/* На карточке чип мельче, чем в форме: он подпись задачи, а не поле ввода. */
+.task-row .due-chip {
+  gap: 8px;
+  padding: 6px 12px;
+  font-size: 12px;
+}
+
+.due-popover.align-right {
+  left: auto;
+  right: 0;
 }
 
 .task-due {

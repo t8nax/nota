@@ -3,17 +3,20 @@ import type { ProjectResponse } from '../api'
 
 interface ProjectPickerProps {
   projects: readonly ProjectResponse[]
-  /** Выбранный проект или null — «Без проекта». */
+  /** Выбранный проект или null — «Входящие». */
   value: string | null
   label: string
   disabled?: boolean
+  /** К какому краю чипа прижат попап: у карточки чип стоит у правого края ленты. */
+  align?: 'left' | 'right'
   onPick: (projectId: string | null) => void
 }
 
-const NO_PROJECT = 'Без проекта'
+/** Так называется отсутствие проекта. Это только подпись: отдельного экрана нет. */
+const NO_PROJECT = 'Входящие'
 
 /** Выбор проекта чипом с попапом: тем же способом задаются срок и его время. */
-function ProjectPicker({ projects, value, label, disabled = false, onPick }: ProjectPickerProps) {
+function ProjectPicker({ projects, value, label, disabled = false, align = 'left', onPick }: ProjectPickerProps) {
   const [opened, setOpened] = useState(false)
   const root = useRef<HTMLDivElement>(null)
 
@@ -47,9 +50,10 @@ function ProjectPicker({ projects, value, label, disabled = false, onPick }: Pro
     setOpened(false)
   }
 
-  // Пустой чип прячется стилями карточки: показывать «Без проекта» на каждой
+  // Пустой чип прячется стилями карточки: показывать «Входящие» на каждой
   // задаче без проекта — шум, а место под чип всё равно нужно.
   const slotClass = current ? 'due-slot' : 'due-slot project-slot-empty'
+  const popoverClass = align === 'right' ? 'due-popover project-popover align-right' : 'due-popover project-popover'
 
   return (
     <div className={slotClass} ref={root}>
@@ -66,7 +70,7 @@ function ProjectPicker({ projects, value, label, disabled = false, onPick }: Pro
       </button>
 
       {opened && (
-        <div className="due-popover project-popover" role="dialog" aria-label={label}>
+        <div className={popoverClass} role="dialog" aria-label={label}>
           <button
             type="button"
             className={value === null ? 'project-option chosen' : 'project-option'}

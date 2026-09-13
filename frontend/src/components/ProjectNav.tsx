@@ -83,6 +83,7 @@ function ProjectNav({ projects, view, onSelect, onCreate, onRename, onDelete }: 
         <input
           className="project-input"
           value={name}
+          placeholder="Имя проекта"
           aria-label={label}
           autoFocus
           onChange={(event) => setName(event.target.value)}

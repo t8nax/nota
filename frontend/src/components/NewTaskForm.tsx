@@ -6,6 +6,8 @@ import ProjectPicker from './ProjectPicker'
 interface NewTaskFormProps {
   submitting: boolean
   projects: readonly ProjectResponse[]
+  /** Срок открытого экрана: на «Сегодня» это сегодня, на остальных — пусто. */
+  defaultDue: DueInput
   /** Проект открытого экрана: с него начинается выбор, пока его не сменили. */
   defaultProjectId: string | null
   onSubmit: (title: string, due: DueInput, projectId: string | null) => Promise<boolean>
@@ -14,9 +16,9 @@ interface NewTaskFormProps {
 const EMPTY_DUE: DueInput = { date: '', time: '' }
 
 /** Поле ввода в стиле дизайна: под заголовком — срок, время доступно только с датой. */
-function NewTaskForm({ submitting, projects, defaultProjectId, onSubmit }: NewTaskFormProps) {
+function NewTaskForm({ submitting, projects, defaultDue, defaultProjectId, onSubmit }: NewTaskFormProps) {
   const [title, setTitle] = useState('')
-  const [due, setDue] = useState<DueInput>(EMPTY_DUE)
+  const [due, setDue] = useState<DueInput>(defaultDue)
   const [projectId, setProjectId] = useState<string | null>(defaultProjectId)
 
   async function handleSubmit(event: FormEvent) {
@@ -27,7 +29,7 @@ function NewTaskForm({ submitting, projects, defaultProjectId, onSubmit }: NewTa
     // Поля очищаются только после удачного создания, иначе введённое пропало бы зря.
     if (await onSubmit(title, due, projectId)) {
       setTitle('')
-      setDue(EMPTY_DUE)
+      setDue(defaultDue)
       setProjectId(defaultProjectId)
     }
   }

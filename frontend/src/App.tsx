@@ -17,7 +17,7 @@ import NewTaskForm from './components/NewTaskForm'
 import Sidebar from './components/Sidebar'
 import TaskStream from './components/TaskStream'
 import Toasts, { type ToastData } from './components/Toasts'
-import { formatMonthTitle, formatTodaySubtitle } from './dates'
+import { dateKey, formatTodaySubtitle } from './dates'
 import { filterForView, type View } from './grouping'
 import { plural } from './plural'
 import './App.css'
@@ -46,9 +46,9 @@ function App() {
   // до создания задачи. Поэтому применяется только ответ последнего запроса.
   const lastListRequest = useRef(0)
 
-  // Один момент времени на всю шапку: заголовок и подпись дня не должны разъехаться.
+  // Один момент времени на весь экран: подпись дня и срок, который подставляет форма,
+  // не должны разъехаться.
   const openedAt = useMemo(() => new Date(), [])
-  const monthTitle = useMemo(() => formatMonthTitle(openedAt), [openedAt])
 
   /** Отмечает уходящий запрос списка; вернёт проверку «этот ответ ещё свежий». */
   const startListRequest = useCallback(() => {
@@ -256,21 +256,17 @@ function App() {
     visible.length === 0
       ? null
       : `Осталось ${visible.length} ${plural(visible.length, { one: 'задача', few: 'задачи', many: 'задач' })}`
-  // Макет этого экрана не рисовал: день подписан в его стиле, но не по нему.
   const subtitle = [view.kind === 'today' ? formatTodaySubtitle(openedAt) : null, countLine]
     .filter(Boolean)
     .join(' · ')
 
-  // Заголовок экрана: у проекта это его имя, у общих лент — прежние подписи.
+  // Заголовок экрана: у проекта это его имя, у общих лент — имя пункта колонки.
   const title =
-    view.kind === 'today' ? 'Сегодня' : view.kind === 'project' ? (openProject?.name ?? '') : monthTitle
+    view.kind === 'today' ? 'Сегодня' : view.kind === 'project' ? (openProject?.name ?? '') : 'Все задачи'
 
-  const emptyText =
-    view.kind === 'today'
-      ? 'На сегодня задач нет.'
-      : view.kind === 'project'
-        ? 'В проекте пока нет задач.'
-        : 'Задач пока нет.'
+  // Задача, заведённая на экране «Сегодня», по умолчанию на сегодня: иначе она
+  // сразу пропадала бы с экрана, на котором её завели.
+  const defaultDue: DueInput = { date: view.kind === 'today' ? dateKey(openedAt) : '', time: '' }
 
   return (
     <div className="layout">
@@ -289,32 +285,35 @@ function App() {
           {subtitle.length > 0 && <p className="header-subtitle">{subtitle}</p>}
         </div>
 
-        {/* Ключ сбрасывает форму при смене экрана: проект задачи начинается с открытого. */}
-        <NewTaskForm
-          key={view.kind === 'project' ? view.projectId : view.kind}
-          submitting={submitting}
-          projects={projects}
-          defaultProjectId={view.kind === 'project' ? view.projectId : null}
-          onSubmit={handleCreate}
-        />
-
-        {list.status === 'loading' && <p className="hint">Загрузка…</p>}
-
-        {list.status === 'error' && <p className="error">{list.message}</p>}
-
-        {list.status === 'ready' && visible.length === 0 && (
-          <p className="hint">{emptyText}</p>
-        )}
-
-        {list.status === 'ready' && visible.length > 0 && (
-          <TaskStream
-            tasks={visible}
-            pending={pending}
+        <div className="stream-content">
+          {/* Ключ сбрасывает форму при смене экрана: срок и проект начинаются с умолчаний экрана. */}
+          <NewTaskForm
+            key={view.kind === 'project' ? view.projectId : view.kind}
+            submitting={submitting}
             projects={projects}
-            onToggle={handleToggle}
-            onMove={handleMove}
+            defaultDue={defaultDue}
+            defaultProjectId={view.kind === 'project' ? view.projectId : null}
+            onSubmit={handleCreate}
           />
-        )}
+
+          {list.status === 'loading' && <p className="hint">Загрузка…</p>}
+
+          {list.status === 'error' && <p className="error">{list.message}</p>}
+
+          {list.status === 'ready' && visible.length === 0 && (
+            <p className="hint">Задач пока нет.</p>
+          )}
+
+          {list.status === 'ready' && visible.length > 0 && (
+            <TaskStream
+              tasks={visible}
+              pending={pending}
+              projects={projects}
+              onToggle={handleToggle}
+              onMove={handleMove}
+            />
+          )}
+        </div>
       </main>
 
       <Toasts toasts={toasts} onDismiss={dismissToast} />

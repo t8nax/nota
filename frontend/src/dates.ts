@@ -9,7 +9,6 @@ const dayTitleFormat = new Intl.DateTimeFormat('ru-RU', {
 })
 const shortDayFormat = new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'long' })
 const fullDayFormat = new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' })
-const todaySubtitleFormat = new Intl.DateTimeFormat('ru-RU', { weekday: 'long', day: 'numeric', month: 'long' })
 
 /** Подписи столбцов календаря. Неделя русская — с понедельника. */
 export const WEEKDAY_LABELS = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс']
@@ -18,7 +17,7 @@ function capitalize(value: string): string {
   return value.charAt(0).toUpperCase() + value.slice(1)
 }
 
-/** «Сентябрь 2026» — крупный заголовок ленты. */
+/** «Сентябрь 2026» — заголовок календаря в попапе срока. */
 export function formatMonthTitle(date: Date): string {
   return capitalize(monthTitleFormat.format(date))
 }
@@ -90,7 +89,7 @@ export function monthGrid(anchor: Date): string[] {
   return Array.from({ length: 42 }, (_, offset) => dateKey(shiftDays(start, offset)))
 }
 
-/** «Суббота, 12 сентября» — подпись дня под заголовком «Сегодня». */
+/** «Воскресенье, 13 сентября 2026 г.» — подпись дня под заголовком «Сегодня». */
 export function formatTodaySubtitle(date: Date): string {
-  return capitalize(todaySubtitleFormat.format(date))
+  return capitalize(dayTitleFormat.format(date))
 }

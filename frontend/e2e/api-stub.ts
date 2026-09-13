@@ -1,10 +1,21 @@
 import type { Page } from '@playwright/test'
 
+/** Задача в том виде, в каком её отдаёт API. */
+export interface StubTask {
+  id: string
+  title: string
+  isDone: boolean
+  createdAt: string
+  projectId: string | null
+  dueDate: string | null
+  dueTime: string | null
+}
+
 /**
  * Задачи без срока: лента режется по дням, и «Без срока» — единственная группа,
  * которая не зависит от того, какой сегодня день.
  */
-export const undatedTasks = [
+export const undatedTasks: StubTask[] = [
   {
     id: '11111111-1111-1111-1111-111111111111',
     title: 'Забрать посылку',

@@ -439,7 +439,7 @@ describe('отметка выполнения', () => {
 })
 
 describe('лента задач', () => {
-  it('разделяет задачи по сроку и подписывает состояние', async () => {
+  it('разделяет задачи по сроку', async () => {
     const tasks = [
       taskJson('Просроченная', false, '2026-09-10'),
       taskJson('Сегодняшняя', false, TODAY, '09:30:00'),
@@ -454,8 +454,30 @@ describe('лента задач', () => {
     expect(screen.getByRole('heading', { name: 'Сегодня' })).toBeInTheDocument()
     expect(screen.getByText('Завтра')).toBeInTheDocument()
     expect(screen.getByText('Без срока')).toBeInTheDocument()
-    expect(screen.getByText('09:30')).toBeInTheDocument()
-    expect(screen.getAllByText('В работе')).toHaveLength(tasks.length)
+    // Состояние у задач в ленте одно, и подписывать его незачем.
+    expect(screen.queryByText('В работе')).toBeNull()
+  })
+
+  it('у сегодняшней задачи показывает только время', async () => {
+    stubFetch([jsonResponse([taskJson('Сегодняшняя', false, TODAY, '09:30:00')])])
+
+    render(<App />)
+
+    expect(await screen.findByText('09:30')).toBeInTheDocument()
+  })
+
+  it('у задачи на другой день показывает дату', async () => {
+    stubFetch([
+      jsonResponse([
+        taskJson('Завтрашняя', false, '2026-09-13'),
+        taskJson('Дальняя', false, '2026-09-20', '18:00:00'),
+      ]),
+    ])
+
+    render(<App />)
+
+    expect(await screen.findByText('13 сентября')).toBeInTheDocument()
+    expect(screen.getByText('20 сентября, 18:00')).toBeInTheDocument()
   })
 
   it('у просроченной задачи показывает дату, а не одно время', async () => {
@@ -606,7 +628,7 @@ describe('раздел «Сегодня»', () => {
     await openToday()
 
     expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Сегодня')
-    expect(screen.getByText('Суббота, 12 сентября · Осталось 2 задачи')).toBeInTheDocument()
+    expect(screen.getByText('Суббота, 12 сентября 2026 г. · Осталось 2 задачи')).toBeInTheDocument()
   })
 
   it('без задач на сегодня говорит об этом, а не молчит', async () => {
@@ -616,7 +638,31 @@ describe('раздел «Сегодня»', () => {
     await screen.findByText('Завтрашняя')
     await openToday()
 
-    expect(screen.getByText('На сегодня задач нет.')).toBeInTheDocument()
+    expect(screen.getByText('Задач пока нет.')).toBeInTheDocument()
+  })
+
+  it('форма ставит заведённой задаче сегодняшний срок и возвращается к нему', async () => {
+    const created = taskJson('Купить хлеб', false, TODAY)
+    stubFetch([jsonResponse([]), jsonResponse(created, 201), jsonResponse([created])])
+
+    render(<App />)
+    await screen.findByText('Задач пока нет.')
+    await openToday()
+
+    expect(screen.getByLabelText('Дата срока')).toHaveTextContent('Сегодня')
+
+    await userEvent.type(screen.getByLabelText('Заголовок новой задачи'), 'Купить хлеб')
+    await pickTime('18:00')
+    await userEvent.click(screen.getByRole('button', { name: 'Добавить' }))
+
+    await screen.findByText('Купить хлеб')
+
+    const [postCall] = callsWith('POST')
+    expect(postCall[1]).toMatchObject({
+      body: JSON.stringify({ title: 'Купить хлеб', dueDate: TODAY, dueTime: '18:00', projectId: null }),
+    })
+    expect(screen.getByLabelText('Дата срока')).toHaveTextContent('Сегодня')
+    expect(screen.getByLabelText('Время срока')).toHaveTextContent('Время')
   })
 
   it('возврат к «Всем задачам» показывает список целиком', async () => {
@@ -628,7 +674,8 @@ describe('раздел «Сегодня»', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Все задачи' }))
 
     expect(screen.getByText('Бессрочная')).toBeInTheDocument()
-    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Сентябрь 2026')
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Все задачи')
+    expect(screen.getByText('Осталось 4 задачи')).toBeInTheDocument()
   })
 
   it('отмечает открытый раздел в левой колонке', async () => {
@@ -690,7 +737,7 @@ describe('экран проекта', () => {
     render(<App />)
     await userEvent.click(await screen.findByRole('button', { name: 'Дом' }))
 
-    expect(screen.getByText('В проекте пока нет задач.')).toBeInTheDocument()
+    expect(screen.getByText('Задач пока нет.')).toBeInTheDocument()
   })
 
   it('созданная на экране проекта задача уходит в этот проект', async () => {
@@ -870,7 +917,7 @@ describe('ведение проектов', () => {
 
     await waitFor(() => expect(screen.queryByRole('button', { name: 'Дом' })).toBeNull())
 
-    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Сентябрь 2026')
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Все задачи')
     expect(screen.getByText('Купить хлеб')).toBeInTheDocument()
     expect(screen.queryByText('Полить цветы')).toBeNull()
 
@@ -954,12 +1001,12 @@ describe('проект задачи', () => {
 
     render(<App />)
 
-    await pickProject('Проект задачи «Полить цветы»', 'Без проекта')
+    await pickProject('Проект задачи «Полить цветы»', 'Входящие')
 
     const [patchCall] = callsWith('PATCH')
     expect(patchCall[1]).toMatchObject({ body: JSON.stringify({ projectId: null }) })
     await waitFor(() =>
-      expect(screen.getByLabelText('Проект задачи «Полить цветы»')).toHaveTextContent('Без проекта'),
+      expect(screen.getByLabelText('Проект задачи «Полить цветы»')).toHaveTextContent('Входящие'),
     )
   })
 

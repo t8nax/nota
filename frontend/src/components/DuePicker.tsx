@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type { DueInput } from '../api'
-import { formatShortDay } from '../dates'
+import { dateKey, formatShortDay } from '../dates'
 import DatePopover from './DatePopover'
 import TimePopover from './TimePopover'
 
@@ -15,6 +15,13 @@ type OpenedPopover = 'date' | 'time' | null
 
 function chipClass(filled: boolean): string {
   return filled ? 'due-chip filled' : 'due-chip'
+}
+
+/** Подпись чипа дня: сегодняшний день назван словом, как группа ленты. */
+function dateLabel(date: string): string {
+  if (date === '') return 'Срок'
+
+  return date === dateKey(new Date()) ? 'Сегодня' : formatShortDay(date)
 }
 
 /** Срок задачи двумя полями со своими попапами: день и время внутри дня. */
@@ -68,7 +75,7 @@ function DuePicker({ value, disabled, onDateChange, onTimeChange }: DuePickerPro
             <line x1="8" y1="2" x2="8" y2="6" />
             <line x1="16" y1="2" x2="16" y2="6" />
           </svg>
-          <span>{value.date === '' ? 'Срок' : formatShortDay(value.date)}</span>
+          <span>{dateLabel(value.date)}</span>
         </button>
 
         {opened === 'date' && (
