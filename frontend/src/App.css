@@ -965,81 +965,32 @@
   opacity: 0.3;
 }
 
-/* Кнопка раскрытия колонки нужна только там, где колонка сжимается. */
-.sidebar-toggle {
-  display: none;
-}
-
 @media (max-width: 1024px) {
   .layout {
     grid-template-columns: 80px 1fr;
   }
 
-  /* Раскрытая колонка сдвигает ленту, а не ложится поверх неё. */
-  .layout:has(.sidebar.expanded) {
-    grid-template-columns: 260px 1fr;
-  }
-
-  .sidebar-toggle {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 44px;
-    height: 44px;
-    margin: -16px 0 0;
-    padding: 0;
-    border: none;
-    border-radius: var(--radius-pill);
-    background: transparent;
-    color: var(--text-secondary);
-    cursor: pointer;
-    transition: background-color 0.2s, color 0.2s;
-  }
-
-  .sidebar-toggle:hover {
-    background: rgba(255, 255, 255, 0.05);
-    color: var(--text-main);
-  }
-
-  .sidebar-toggle svg {
-    width: 20px;
-    height: 20px;
-    stroke-width: 2.2px;
-  }
-
-  /* Дальше — только сжатая колонка: раскрытая выглядит так же, как на широком экране. */
-  .sidebar:not(.expanded) {
+  .sidebar {
     padding: 32px 12px;
   }
 
-  .sidebar:not(.expanded) .sidebar-toggle {
-    margin: -16px auto 0;
-  }
-
-  .sidebar:not(.expanded) .nav-group-label,
-  .sidebar:not(.expanded) .brand span,
-  .sidebar:not(.expanded) .nav-item > span:not(.project-dot) {
+  .sidebar .nav-group-label,
+  .brand span,
+  .nav-item > span:not(.project-dot) {
     display: none;
   }
 
-  .sidebar:not(.expanded) .brand {
+  .brand {
     justify-content: center;
     padding: 0;
   }
 
-  .sidebar:not(.expanded) .nav-item {
+  .nav-item {
     justify-content: center;
     padding: 12px;
     width: 44px;
     height: 44px;
     margin: 0 auto 4px;
-  }
-
-  /* В квадрате пункта места хватает только точке: меню проекта живёт в раскрытой колонке. */
-  .sidebar:not(.expanded) .project-menu-button,
-  .sidebar:not(.expanded) .project-menu,
-  .sidebar:not(.expanded) .project-confirm {
-    display: none;
   }
 
   .main-stream {

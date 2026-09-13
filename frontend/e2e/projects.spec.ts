@@ -34,67 +34,6 @@ test('на узком экране от проекта остаётся точк
   await expect(page.getByText('Проекты', { exact: true })).toBeHidden()
 })
 
-test('в сжатой колонке у проекта нет кнопки меню, и наезжать на точку нечему', async ({ page }) => {
-  await page.setViewportSize({ width: 1024, height: 800 })
-  await stubProjectList(page, projects)
-  await stubTaskList(page)
-  await page.goto('/')
-
-  const row = page.locator('.project-row').first()
-
-  await row.hover()
-  await expect(row.locator('.project-dot')).toBeVisible()
-  await expect(row.locator('.project-menu-button')).toBeHidden()
-})
-
-test('кнопка под логотипом раскрывает колонку, сдвигая ленту, и сворачивает её', async ({ page }) => {
-  await page.setViewportSize({ width: 1024, height: 800 })
-  await stubProjectList(page, projects)
-  await stubTaskList(page)
-  await page.goto('/')
-
-  const sidebar = page.locator('.sidebar')
-  const stream = page.locator('.main-stream')
-
-  await expect(sidebar).toHaveCSS('width', '80px')
-
-  await page.getByRole('button', { name: 'Раскрыть колонку' }).click()
-
-  await expect(sidebar).toHaveCSS('width', `${SIDEBAR_WIDTH}px`)
-  expect((await stream.boundingBox())!.x).toBe(SIDEBAR_WIDTH)
-  await expect(page.getByRole('button', { name: 'Входящие' })).toBeVisible()
-  await expect(page.getByText('Проекты', { exact: true })).toBeVisible()
-  await expect(page.locator('.project-name', { hasText: short.name })).toBeVisible()
-
-  // В раскрытой колонке меню проекта такое же, как на широком экране.
-  const row = page.locator('.project-row').first()
-  const menuButton = row.getByLabel(`Действия проекта «${short.name}»`)
-  await expect(menuButton).toBeVisible()
-
-  const dot = (await row.locator('.project-dot').boundingBox())!
-  const button = (await menuButton.boundingBox())!
-  expect(button.x).toBeGreaterThanOrEqual(dot.x + dot.width)
-
-  await menuButton.click()
-  const menu = (await page.getByRole('menu').boundingBox())!
-  expect(menu.x).toBeGreaterThanOrEqual(0)
-  expect(menu.x + menu.width).toBeLessThanOrEqual(page.viewportSize()!.width)
-
-  await page.keyboard.press('Escape')
-  await page.getByRole('button', { name: 'Свернуть колонку' }).click()
-
-  await expect(sidebar).toHaveCSS('width', '80px')
-  await expect(page.getByText('Проекты', { exact: true })).toBeHidden()
-})
-
-test('на широком экране кнопки раскрытия колонки нет', async ({ page }) => {
-  await stubProjectList(page, projects)
-  await stubTaskList(page)
-  await page.goto('/')
-
-  await expect(page.locator('.sidebar-toggle')).toBeHidden()
-})
-
 test('меню проекта открывается и остаётся в пределах окна', async ({ page }) => {
   await stubProjectList(page, projects)
   await stubTaskList(page)
