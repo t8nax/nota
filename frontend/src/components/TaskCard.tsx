@@ -25,17 +25,17 @@ function dueLabel(task: TaskResponse, today: string): string | null {
   return time === null ? formatShortDay(task.dueDate) : `${formatShortDay(task.dueDate)}, ${time}`
 }
 
-/** Карточка ленты: срок сверху, под ним отметка с заголовком и чип проекта справа. */
+/** Задача в ленте: карточка со сроком, отметкой и заголовком, справа от неё чип проекта. */
 function TaskCard({ task, overdue, pending, projects, onToggle, onMove }: TaskCardProps) {
   const due = dueLabel(task, dateKey(new Date()))
 
   return (
-    <div className="task-card">
-      <div className="task-meta">
-        {due && <span className={overdue ? 'task-due overdue' : 'task-due'}>{due}</span>}
-      </div>
+    <div className="task-item">
+      <div className="task-card">
+        <div className="task-meta">
+          {due && <span className={overdue ? 'task-due overdue' : 'task-due'}>{due}</span>}
+        </div>
 
-      <div className="task-row">
         {/* Заголовок внутри label: он же служит доступным именем для отметки. */}
         <label className="task-content">
           <input
@@ -47,9 +47,11 @@ function TaskCard({ task, overdue, pending, projects, onToggle, onMove }: TaskCa
           />
           <span className="task-text">{task.title}</span>
         </label>
+      </div>
 
-        {/* Пока проектов нет, переносить задачу некуда, и чипа нет. */}
-        {projects.length > 0 && (
+      {/* Пока проектов нет, переносить задачу некуда, и чипа нет. */}
+      {projects.length > 0 && (
+        <div className="task-project">
           <ProjectPicker
             projects={projects}
             value={task.projectId}
@@ -58,8 +60,8 @@ function TaskCard({ task, overdue, pending, projects, onToggle, onMove }: TaskCa
             align="right"
             onPick={(projectId) => onMove(task, projectId)}
           />
-        )}
-      </div>
+        </div>
+      )}
     </div>
   )
 }

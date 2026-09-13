@@ -84,13 +84,13 @@ test('чип проекта у задачи без проекта виден т�
   await stubTaskList(page)
   await page.goto('/')
 
-  const card = page.locator('.task-card').first()
+  const item = page.locator('.task-item').first()
   // Прячется слот целиком, поэтому и прозрачность снимается с него, а не с кнопки.
-  const slot = card.locator('.project-slot-empty')
+  const slot = item.locator('.project-slot-empty')
 
   await expect(slot).toHaveCSS('opacity', '0')
 
-  await card.hover()
+  await item.locator('.task-card').hover()
 
   await expect(slot).toHaveCSS('opacity', '1')
 })
