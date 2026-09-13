@@ -34,6 +34,63 @@ test('на узком экране от проекта остаётся точк
   await expect(page.getByText('Проекты', { exact: true })).toBeHidden()
 })
 
+test('на узком экране кнопка меню проекта не наезжает на его точку', async ({ page }) => {
+  await page.setViewportSize({ width: 1024, height: 800 })
+  await stubProjectList(page, projects)
+  await stubTaskList(page)
+  await page.goto('/')
+
+  const row = page.locator('.project-row').first()
+  const menuButton = row.locator('.project-menu-button')
+
+  // В покое от проекта остаётся одна точка: знак меню появляется по наведению или фокусу.
+  await expect(menuButton).toBeHidden()
+
+  await row.hover()
+  await expect(menuButton).toBeVisible()
+
+  const item = (await row.locator('.nav-item').boundingBox())!
+  const dot = (await row.locator('.project-dot').boundingBox())!
+  const button = (await menuButton.boundingBox())!
+
+  const overlaps =
+    button.x < dot.x + dot.width &&
+    dot.x < button.x + button.width &&
+    button.y < dot.y + dot.height &&
+    dot.y < button.y + button.height
+  expect(overlaps).toBe(false)
+
+  // Знак сидит в правом верхнем углу квадрата пункта.
+  expect(Math.abs(button.x + button.width - (item.x + item.width))).toBeLessThanOrEqual(1)
+  expect(Math.abs(button.y - item.y)).toBeLessThanOrEqual(1)
+
+  await menuButton.click()
+  const menu = (await page.getByRole('menu').boundingBox())!
+  expect(menu.x).toBeGreaterThanOrEqual(0)
+
+  await page.getByRole('menuitem', { name: 'Удалить' }).click()
+  const confirm = (await page.getByRole('dialog', { name: 'Удаление проекта' }).boundingBox())!
+  expect(confirm.x).toBeGreaterThanOrEqual(0)
+  expect(confirm.x + confirm.width).toBeLessThanOrEqual(page.viewportSize()!.width)
+})
+
+test('на узком экране меню проекта доступно с клавиатуры', async ({ page }) => {
+  await page.setViewportSize({ width: 1024, height: 800 })
+  await stubProjectList(page, projects)
+  await stubTaskList(page)
+  await page.goto('/')
+
+  const row = page.locator('.project-row').first()
+
+  await row.locator('.nav-item').focus()
+  await expect(row.locator('.project-menu-button')).toBeVisible()
+
+  await page.keyboard.press('Tab')
+  await expect(row.locator('.project-menu-button')).toBeFocused()
+  await page.keyboard.press('Enter')
+  await expect(page.getByRole('menu')).toBeVisible()
+})
+
 test('меню проекта открывается и остаётся в пределах окна', async ({ page }) => {
   await stubProjectList(page, projects)
   await stubTaskList(page)

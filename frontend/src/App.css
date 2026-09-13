@@ -993,6 +993,40 @@
     margin: 0 auto 4px;
   }
 
+  /* Квадрат пункта занят точкой, и кнопка у правого края легла бы прямо на неё.
+     Меню остаётся доступным: знак появляется в углу квадрата по наведению или фокусу. */
+  .project-menu-button {
+    top: 0;
+    right: 6px;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: var(--bg-input);
+    color: var(--text-main);
+    visibility: hidden;
+  }
+
+  .project-row:hover .project-menu-button,
+  .project-row:focus-within .project-menu-button {
+    visibility: visible;
+  }
+
+  .nav-item.active + .project-menu-button {
+    color: var(--text-main);
+  }
+
+  .project-menu-button svg {
+    width: 12px;
+    height: 12px;
+  }
+
+  /* Строка уже любого попапа: прижатый к её правому краю, он ушёл бы за левый край окна. */
+  .project-menu,
+  .project-confirm {
+    left: 0;
+    right: auto;
+  }
+
   .main-stream {
     padding: 32px 24px;
   }
