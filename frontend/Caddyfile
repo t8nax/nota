@@ -1,0 +1,16 @@
+# Фронт ходит на относительный /api, как и в разработке: там его проксирует Vite,
+# здесь — Caddy. Браузер видит один origin, поэтому CORS на API не нужен.
+# API_URL — внутренний адрес API, PORT назначает хостинг.
+:{$PORT:80} {
+	encode gzip
+
+	handle /api/* {
+		reverse_proxy {$API_URL}
+	}
+
+	handle {
+		root * /srv
+		try_files {path} /index.html
+		file_server
+	}
+}
