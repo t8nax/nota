@@ -862,6 +862,7 @@
 }
 
 .cal-date {
+  position: relative;
   font: inherit;
   font-size: 14px;
   font-weight: 600;
@@ -875,7 +876,7 @@
 }
 
 .cal-date:hover {
-  background: rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.1);
   color: var(--text-main);
 }
 
@@ -883,20 +884,35 @@
   color: var(--text-tertiary);
 }
 
-/* Синий календарю не достаётся: сегодня обведено серым, выбранный день — таблетка
-   цвета поля, как кнопки «Сегодня» и «Завтра» под сеткой. */
+/* Три состояния по нарастанию силы: наведение — полупрозрачная подложка, сегодня —
+   метка точкой без заливки, выбранный день — белая таблетка. Синего в календаре нет. */
 .cal-date.today {
   color: var(--text-main);
   font-weight: 700;
-  box-shadow: inset 0 0 0 1px var(--divider);
 }
 
-.cal-date.selected,
-.cal-date.selected:hover {
-  background: var(--bg-input);
-  color: var(--text-main);
+/* Точка цветом текста ячейки: на белой таблетке выбранного сегодня она тёмная. */
+.cal-date.today::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: 3px;
+  width: 3.5px;
+  height: 3.5px;
+  border-radius: 50%;
+  background: currentColor;
+  transform: translateX(-50%);
+}
+
+.cal-date.selected {
+  background: var(--accent-primary);
+  color: var(--bg-app);
   font-weight: 700;
-  box-shadow: none;
+}
+
+.cal-date.selected:hover {
+  background: #e0e0e0;
+  color: var(--bg-app);
 }
 
 .popover-actions {
@@ -977,16 +993,11 @@
   transition: background-color 0.2s, color 0.2s;
 }
 
+/* Выбранный слот не выделяется: выбранное время читается в поле над списком,
+   и наведение остаётся единственным состоянием слота. */
 .time-slot:hover {
-  background: rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.1);
   color: var(--text-main);
-}
-
-.time-slot.selected,
-.time-slot.selected:hover {
-  background: var(--bg-input);
-  color: var(--text-main);
-  font-weight: 700;
 }
 
 .new-task-icon {

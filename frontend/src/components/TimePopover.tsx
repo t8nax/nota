@@ -43,7 +43,7 @@ function TimePopover({ value, onChange, onPick }: TimePopoverProps) {
             type="button"
             key={slot}
             ref={slot === value ? selected : undefined}
-            className={slot === value ? 'time-slot selected' : 'time-slot'}
+            className="time-slot"
             aria-pressed={slot === value}
             onClick={() => onPick(slot)}
           >

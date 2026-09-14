@@ -36,6 +36,10 @@ const EDIT_POPOVER_GAP = 8
 const WHITE = 'rgb(255, 255, 255)'
 const DIVIDER = 'rgb(44, 44, 46)'
 const RED = 'rgb(255, 69, 58)'
+const BG_APP = 'rgb(13, 13, 13)'
+const TRANSPARENT = 'rgba(0, 0, 0, 0)'
+/** Наведение на день календаря и на слот времени. */
+const HOVER = 'rgba(255, 255, 255, 0.1)'
 
 /** Задача в проекте с заголовком, которому заведомо тесно в одной строке. */
 const longTask = {
@@ -314,27 +318,124 @@ test('попап проекта у задачи прижат к правому �
   expect(await gapBetween(chip, popover)).toBe(TASK_POPOVER_GAP)
 })
 
-test('фокус и открытый попап отмечены белым, выбранный день — цветом поля', async ({ page }) => {
+/** Посчитанные браузером свойства элемента или его псевдоэлемента. DOM-типов в e2e нет,
+ * поэтому `getComputedStyle` берётся из глобального объекта страницы с объявленной сигнатурой. */
+async function computed(locator: Locator, names: string[], pseudo?: string) {
+  return locator.evaluate(
+    (element, [props, pseudoElement]) => {
+      type Style = { getPropertyValue: (name: string) => string }
+      const page = globalThis as unknown as { getComputedStyle: (target: unknown, pseudo?: string) => Style }
+      const style = page.getComputedStyle(element, pseudoElement)
+
+      return Object.fromEntries(props.map((name) => [name, style.getPropertyValue(name)]))
+    },
+    [names, pseudo] as const,
+  )
+}
+
+/** Стиль точки сегодняшнего дня: она нарисована псевдоэлементом. */
+function todayDot(day: Locator) {
+  return computed(day, ['width', 'height', 'bottom', 'background-color'], '::after')
+}
+
+test('фокус и открытый попап отмечены белым', async ({ page }) => {
   await stubProjectList(page)
   await stubTaskList(page)
   await page.goto('/')
 
   const title = page.getByLabel('Заголовок новой задачи')
   await title.focus()
-  await expect(title).toHaveCSS('border-color', 'rgb(255, 255, 255)')
+  await expect(title).toHaveCSS('border-color', WHITE)
 
   await page.getByRole('button', { name: 'Все задачи' }).click()
   await page.getByRole('button', { name: 'Сегодня' }).click()
 
   const chip = page.getByRole('button', { name: 'Дата срока' })
   await chip.click()
-  await expect(chip).toHaveCSS('border-color', 'rgb(255, 255, 255)')
+  await expect(chip).toHaveCSS('border-color', WHITE)
+})
 
-  // На «Сегодня» форма подставляет сегодняшний срок: выбранный день и сегодня совпадают.
-  const selected = page.getByRole('dialog', { name: 'Выбор даты срока' }).locator('.cal-date.selected')
-  await expect(selected).toHaveCSS('background-color', 'rgb(31, 31, 31)')
-  await expect(selected).toHaveCSS('color', 'rgb(255, 255, 255)')
-  await expect(selected).toHaveCSS('font-weight', '700')
+test('в календаре выбранный день — белая таблетка, сегодня — точка, наведение — слабая подложка', async ({
+  page,
+}) => {
+  await stubProjectList(page)
+  await stubTaskList(page)
+  await page.goto('/')
+  await page.getByRole('button', { name: 'Сегодня' }).click()
+
+  const chip = page.getByRole('button', { name: 'Дата срока' })
+  const calendar = page.getByRole('dialog', { name: 'Выбор даты срока' })
+  await chip.click()
+
+  // На «Сегодня» форма подставляет сегодняшний срок: сегодня и выбрано совпадают, точка тёмная.
+  const today = calendar.locator('.cal-date.today')
+  await expect(today).toHaveClass(/selected/)
+  await expect(today).toHaveCSS('background-color', WHITE)
+  await expect(today).toHaveCSS('color', BG_APP)
+  await expect(today).toHaveCSS('font-weight', '700')
+  await expect(today).toHaveCSS('box-shadow', 'none')
+  expect(await todayDot(today)).toEqual({ width: '3.5px', height: '3.5px', bottom: '3px', 'background-color': BG_APP })
+
+  await today.hover()
+  await expect(today).toHaveCSS('background-color', 'rgb(224, 224, 224)')
+  await expect(today).toHaveCSS('color', BG_APP)
+
+  // Выбран другой день месяца: все три состояния видны в одном календаре.
+  const others = calendar.locator('.cal-date:not(.outside):not(.today)')
+  const pickedLabel = await others.nth(0).getAttribute('aria-label')
+  await others.nth(0).click()
+  await chip.click()
+
+  const picked = calendar.getByRole('button', { name: pickedLabel!, exact: true })
+  await expect(picked).toHaveClass(/selected/)
+  await expect(picked).toHaveCSS('background-color', WHITE)
+  await expect(picked).toHaveCSS('color', BG_APP)
+  await expect(picked).toHaveCSS('font-weight', '700')
+
+  await expect(today).not.toHaveClass(/selected/)
+  await expect(today).toHaveCSS('background-color', TRANSPARENT)
+  await expect(today).toHaveCSS('color', WHITE)
+  await expect(today).toHaveCSS('font-weight', '700')
+  await expect(today).toHaveCSS('box-shadow', 'none')
+  expect(await todayDot(today)).toEqual({ width: '3.5px', height: '3.5px', bottom: '3px', 'background-color': WHITE })
+
+  const hovered = others.nth(1)
+  await hovered.hover()
+  await expect(hovered).toHaveCSS('background-color', HOVER)
+  await expect(hovered).toHaveCSS('color', WHITE)
+  await expect(hovered).toHaveCSS('font-weight', '600')
+  await expect(picked).toHaveCSS('background-color', WHITE)
+})
+
+test('в списке времени выбранный слот не выделен, наведение — слабая подложка', async ({ page }) => {
+  await stubProjectList(page)
+  await stubTaskList(page)
+  await page.goto('/')
+  await page.getByRole('button', { name: 'Сегодня' }).click()
+
+  const chip = page.getByRole('button', { name: 'Время срока' })
+  const times = page.getByRole('dialog', { name: 'Выбор времени срока' })
+  await chip.click()
+  await times.getByRole('button', { name: '10:00', exact: true }).click()
+  await expect(chip).toHaveText('10:00')
+  await chip.click()
+
+  const picked = times.getByRole('button', { name: '10:00', exact: true })
+  const plain = times.getByRole('button', { name: '12:00', exact: true })
+  const look = (slot: Locator) => computed(slot, ['background-color', 'color', 'font-weight', 'box-shadow'])
+
+  // Мышь уводится с попапа, чтобы ни один слот не был под наведением.
+  await page.mouse.move(0, 0)
+  await expect(picked).toHaveCSS('background-color', TRANSPARENT)
+  await expect(picked).toHaveCSS('font-weight', '600')
+  expect(await look(picked)).toEqual(await look(plain))
+
+  await picked.hover()
+  await expect(picked).toHaveCSS('background-color', HOVER)
+  await expect(picked).toHaveCSS('color', WHITE)
+  await plain.hover()
+  await expect(plain).toHaveCSS('background-color', HOVER)
+  await expect(plain).toHaveCSS('color', WHITE)
 })
 
 test('попап чипа формы открывается с зазором макета', async ({ page }) => {
