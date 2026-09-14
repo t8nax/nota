@@ -49,8 +49,9 @@ function TaskCard({ task, overdue, pending, editing, projects, onToggle, onMove,
   return (
     <div className="task-item">
       <div className={editing ? 'task-card editing' : 'task-card'}>
-        {/* Строка срока есть всегда: кнопка «Срок» появляется при наведении, и лента не дёргается. */}
-        <div className="task-meta">
+        {/* Без подписи строка срока схлопнута: места над заголовком она не занимает
+            и раскрывается с кнопкой только под курсором, с фокусом или открытым календарём. */}
+        <div className={due === null ? 'task-meta quiet' : 'task-meta'}>
           <div className="due-slot" ref={dueSlot}>
             <button
               type="button"

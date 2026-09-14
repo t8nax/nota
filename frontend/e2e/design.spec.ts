@@ -222,7 +222,7 @@ test('чип проекта стоит у правого края задачи �
   expect(chipMiddle).toBeLessThanOrEqual(titleBox.y + titleBox.height)
 })
 
-test('строка срока зарезервирована и у задачи без срока, «Срок» проявляется при наведении', async ({ page }) => {
+test('у задачи без срока строка срока не держит отступа и появляется при наведении', async ({ page }) => {
   // Срок в давно прошедший день: задача просрочена при любой сегодняшней дате.
   const overdueTask = { ...undatedTasks[1], dueDate: '2020-01-15', dueTime: '18:00:00' }
 
@@ -235,19 +235,34 @@ test('строка срока зарезервирована и у задачи 
 
   await expect(undated).toBeVisible()
 
-  // Заголовок стоит на одной высоте в карточке со сроком и без него.
-  for (const card of [undated, dated]) {
-    const meta = card.locator('.task-meta')
-    expect(Math.round((await box(meta)).y - (await box(card)).y)).toBe(TASK_CARD_PADDING)
-    expect(await gapBetween(meta, card.locator('.task-content'))).toBe(TASK_META_GAP)
-  }
+  // Без наведения заголовок задачи без срока стоит сразу под отступом карточки.
+  const titleOffset = async (card: Locator) =>
+    Math.round((await box(card.locator('.task-content'))).y - (await box(card)).y)
+  expect(await titleOffset(undated)).toBe(TASK_CARD_PADDING)
 
+  const datedMeta = dated.locator('.task-meta')
+  expect(Math.round((await box(datedMeta)).y - (await box(dated)).y)).toBe(TASK_CARD_PADDING)
+  expect(await gapBetween(datedMeta, dated.locator('.task-content'))).toBe(TASK_META_GAP)
+
+  // Под курсором строка раскрывается с кнопкой «Срок» и стоит так же, как подпись срока.
   const quiet = undated.getByRole('button', { name: 'Срок' })
   await expect(quiet).toHaveCSS('opacity', '0')
-  const heightBefore = (await box(undated)).height
   await undated.hover()
   await expect(quiet).toHaveCSS('opacity', '1')
-  expect((await box(undated)).height).toBe(heightBefore)
+  const undatedMeta = undated.locator('.task-meta')
+  expect(Math.round((await box(undatedMeta)).y - (await box(undated)).y)).toBe(TASK_CARD_PADDING)
+  expect(await gapBetween(undatedMeta, undated.locator('.task-content'))).toBe(TASK_META_GAP)
+
+  // Курсор ушёл — отступ снова пропадает.
+  await page.mouse.move(0, 0)
+  await expect(quiet).toHaveCSS('opacity', '0')
+  expect(await titleOffset(undated)).toBe(TASK_CARD_PADDING)
+
+  // Tab раскрывает строку так же, как курсор.
+  await quiet.focus()
+  await expect(quiet).toHaveCSS('opacity', '1')
+  expect(await gapBetween(undatedMeta, undated.locator('.task-content'))).toBe(TASK_META_GAP)
+  await quiet.blur()
 
   const due = dated.locator('.task-due')
   await expect(due).toHaveText('15 января, 18:00')

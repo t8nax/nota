@@ -597,13 +597,30 @@
   cursor: progress;
 }
 
-/* Без подписи срока кнопка видна только под курсором, с фокусом и с открытым календарём. */
+/* Без подписи срока строка схлопнута в ноль и не держит отступа над заголовком.
+   Кнопка в ней остаётся в порядке фокуса: Tab раскрывает строку так же, как курсор. */
+.task-meta.quiet {
+  min-height: 0;
+  height: 0;
+  margin-bottom: 0;
+  overflow: hidden;
+}
+
+.task-item:hover .task-meta.quiet,
+.task-meta.quiet:focus-within,
+.task-meta.quiet:has([aria-expanded='true']) {
+  min-height: 17px;
+  height: auto;
+  margin-bottom: 8px;
+  overflow: visible;
+}
+
 .task-due.quiet {
   opacity: 0;
 }
 
 .task-item:hover .task-due.quiet,
-.task-due.quiet:focus-visible,
+.task-meta.quiet:focus-within .task-due.quiet,
 .task-due.quiet[aria-expanded='true'] {
   opacity: 1;
 }
