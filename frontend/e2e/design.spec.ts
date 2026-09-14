@@ -18,6 +18,9 @@ const NAV_LABEL_GAP = 12
 /** Чип проекта у карточки: от низа строки задачи; попап встаёт на 4px ниже строки. */
 const TASK_CHIP_BOTTOM = 18
 const TASK_POPOVER_GAP = TASK_CHIP_BOTTOM + 4
+/** Верхний отступ карточки задачи и зазор от строки срока до заголовка. */
+const TASK_CARD_PADDING = 16
+const TASK_META_GAP = 8
 /** Зазор от чипа формы до его попапа. */
 const FORM_POPOVER_GAP = 16
 
@@ -158,6 +161,32 @@ test('чип проекта стоит у правого края задачи �
   const chipMiddle = chipBox.y + chipBox.height / 2
   expect(chipMiddle).toBeGreaterThanOrEqual(titleBox.y)
   expect(chipMiddle).toBeLessThanOrEqual(titleBox.y + titleBox.height)
+})
+
+test('у задачи без срока заголовок стоит сразу под отступом карточки', async ({ page }) => {
+  // Срок в давно прошедший день: задача просрочена при любой сегодняшней дате.
+  const overdueTask = { ...undatedTasks[1], dueDate: '2020-01-15', dueTime: '18:00:00' }
+
+  await stubProjectList(page)
+  await stubTaskList(page, [overdueTask, undatedTasks[0]])
+  await page.goto('/')
+
+  const undated = page.locator('.task-card', { hasText: undatedTasks[0].title })
+  const dated = page.locator('.task-card', { hasText: overdueTask.title })
+
+  await expect(undated).toBeVisible()
+  await expect(undated.locator('.task-meta')).toHaveCount(0)
+  expect(Math.round((await box(undated.locator('.task-content'))).y - (await box(undated)).y)).toBe(
+    TASK_CARD_PADDING,
+  )
+
+  const meta = dated.locator('.task-meta')
+  const due = meta.locator('.task-due')
+  await expect(due).toHaveText('15 января, 18:00')
+  // --tag-red
+  await expect(due).toHaveCSS('color', 'rgb(255, 69, 58)')
+  expect(Math.round((await box(meta)).y - (await box(dated)).y)).toBe(TASK_CARD_PADDING)
+  expect(await gapBetween(meta, dated.locator('.task-content'))).toBe(TASK_META_GAP)
 })
 
 test('длинный заголовок не наезжает на чип проекта', async ({ page }) => {

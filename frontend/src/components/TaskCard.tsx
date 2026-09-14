@@ -32,9 +32,12 @@ function TaskCard({ task, overdue, pending, projects, onToggle, onMove }: TaskCa
   return (
     <div className="task-item">
       <div className="task-card">
-        <div className="task-meta">
-          {due && <span className={overdue ? 'task-due overdue' : 'task-due'}>{due}</span>}
-        </div>
+        {/* Без подписи строки срока нет вовсе: пустая, она держала бы 25px над заголовком. */}
+        {due && (
+          <div className="task-meta">
+            <span className={overdue ? 'task-due overdue' : 'task-due'}>{due}</span>
+          </div>
+        )}
 
         {/* Заголовок внутри label: он же служит доступным именем для отметки. */}
         <label className="task-content">
