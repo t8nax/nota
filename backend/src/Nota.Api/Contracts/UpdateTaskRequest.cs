@@ -5,6 +5,7 @@ namespace Nota.Api.Contracts;
 /// Значения явные, а не переключатели, поэтому повтор запроса безвреден.
 /// </summary>
 public record UpdateTaskRequest(
+    Patch<string?> Title,
     Patch<bool?> IsDone,
     Patch<DateOnly?> DueDate,
     Patch<TimeOnly?> DueTime,

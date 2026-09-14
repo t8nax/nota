@@ -336,4 +336,77 @@ public class UpdateTaskTests(NotaApiFactory factory)
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
+
+    [Fact]
+    public async Task Renames_task_keeping_other_fields()
+    {
+        await factory.ResetAsync();
+        var task = NewTask("Купить хлеб", dueDate: new DateOnly(2026, 9, 20), dueTime: new TimeOnly(18, 0));
+        await factory.SeedAsync(task);
+
+        var response = await PatchAsync(task.Id, """{"title": "  Купить хлеб и молоко  "}""");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var updated = await response.Content.ReadFromJsonAsync<TaskResponse>();
+        Assert.NotNull(updated);
+        Assert.Equal("Купить хлеб и молоко", updated.Title);
+
+        var stored = Assert.Single(await factory.GetTasksAsync());
+        Assert.Equal("Купить хлеб и молоко", stored.Title);
+        Assert.Equal(new DateOnly(2026, 9, 20), stored.DueDate);
+        Assert.Equal(new TimeOnly(18, 0), stored.DueTime);
+    }
+
+    [Theory]
+    [InlineData("""{"title": ""}""")]
+    [InlineData("""{"title": "   "}""")]
+    [InlineData("""{"title": null}""")]
+    public async Task Rejects_empty_title(string json)
+    {
+        await factory.ResetAsync();
+        var task = NewTask("Купить хлеб");
+        await factory.SeedAsync(task);
+
+        var response = await PatchAsync(task.Id, json);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal("Купить хлеб", Assert.Single(await factory.GetTasksAsync()).Title);
+    }
+
+    [Fact]
+    public async Task Rejects_too_long_title()
+    {
+        await factory.ResetAsync();
+        var task = NewTask("Купить хлеб");
+        await factory.SeedAsync(task);
+
+        var title = new string('а', TodoTask.TitleMaxLength + 1);
+        var response = await PatchAsync(task.Id, $$"""{"title": "{{title}}"}""");
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal("Купить хлеб", Assert.Single(await factory.GetTasksAsync()).Title);
+    }
+
+    [Fact]
+    public async Task Changes_title_due_and_project_in_one_request()
+    {
+        await factory.ResetAsync();
+        var project = NewProject("Дом");
+        await factory.SeedAsync(project);
+        var task = NewTask("Встреча", dueDate: new DateOnly(2026, 9, 20), dueTime: new TimeOnly(9, 0));
+        await factory.SeedAsync(task);
+
+        var response = await PatchAsync(
+            task.Id,
+            $$"""{"title": "Созвон", "dueDate": "2026-09-21", "dueTime": null, "projectId": "{{project.Id}}"}""");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var stored = Assert.Single(await factory.GetTasksAsync());
+        Assert.Equal("Созвон", stored.Title);
+        Assert.Equal(new DateOnly(2026, 9, 21), stored.DueDate);
+        Assert.Null(stored.DueTime);
+        Assert.Equal(project.Id, stored.ProjectId);
+    }
 }

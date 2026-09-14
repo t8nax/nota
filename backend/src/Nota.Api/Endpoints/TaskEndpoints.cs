@@ -30,23 +30,12 @@ public static class TaskEndpoints
 
         group.MapPost("/", async (CreateTaskRequest request, NotaDbContext db, CancellationToken ct) =>
         {
-            var title = request.Title?.Trim() ?? string.Empty;
-
-            if (title.Length == 0)
+            if (ValidateTitle(request.Title) is { } badTitle)
             {
-                return Results.ValidationProblem(new Dictionary<string, string[]>
-                {
-                    ["title"] = ["Заголовок задачи не может быть пустым."]
-                });
+                return badTitle;
             }
 
-            if (title.Length > TodoTask.TitleMaxLength)
-            {
-                return Results.ValidationProblem(new Dictionary<string, string[]>
-                {
-                    ["title"] = [$"Заголовок задачи не может быть длиннее {TodoTask.TitleMaxLength} символов."]
-                });
-            }
+            var title = request.Title!.Trim();
 
             if (request.DueDate is null && request.DueTime is not null)
             {
@@ -83,7 +72,7 @@ public static class TaskEndpoints
 
         group.MapPatch("/{id:guid}", async (Guid id, UpdateTaskRequest request, NotaDbContext db, CancellationToken ct) =>
         {
-            if (!request.IsDone.IsSet && !request.DueDate.IsSet && !request.DueTime.IsSet && !request.ProjectId.IsSet)
+            if (!request.Title.IsSet && !request.IsDone.IsSet && !request.DueDate.IsSet && !request.DueTime.IsSet && !request.ProjectId.IsSet)
             {
                 return Results.ValidationProblem(new Dictionary<string, string[]>
                 {
@@ -97,6 +86,12 @@ public static class TaskEndpoints
                 {
                     ["isDone"] = ["Нужно передать значение отметки."]
                 });
+            }
+
+            // Заголовок в правке подчиняется тем же правилам, что при создании.
+            if (request.Title.IsSet && ValidateTitle(request.Title.Value) is { } badTitle)
+            {
+                return badTitle;
             }
 
             var task = await db.Tasks.FirstOrDefaultAsync(t => t.Id == id, ct);
@@ -134,6 +129,11 @@ public static class TaskEndpoints
                 task.ProjectId = request.ProjectId.Value;
             }
 
+            if (request.Title.IsSet)
+            {
+                task.Title = request.Title.Value!.Trim();
+            }
+
             if (request.IsDone.Value is bool isDone)
             {
                 task.IsDone = isDone;
@@ -147,6 +147,46 @@ public static class TaskEndpoints
             return Results.Ok(ToResponse(task));
         })
         .WithName("UpdateTask");
+
+        group.MapDelete("/{id:guid}", async (Guid id, NotaDbContext db, CancellationToken ct) =>
+        {
+            var task = await db.Tasks.FirstOrDefaultAsync(t => t.Id == id, ct);
+
+            if (task is null)
+            {
+                return Results.NotFound();
+            }
+
+            db.Tasks.Remove(task);
+            await db.SaveChangesAsync(ct);
+
+            return Results.NoContent();
+        })
+        .WithName("DeleteTask");
+    }
+
+    /// <summary>Отказ, если заголовок не годится, иначе null. Правила одни у создания и правки.</summary>
+    private static IResult? ValidateTitle(string? title)
+    {
+        var trimmed = title?.Trim() ?? string.Empty;
+
+        if (trimmed.Length == 0)
+        {
+            return Results.ValidationProblem(new Dictionary<string, string[]>
+            {
+                ["title"] = ["Заголовок задачи не может быть пустым."]
+            });
+        }
+
+        if (trimmed.Length > TodoTask.TitleMaxLength)
+        {
+            return Results.ValidationProblem(new Dictionary<string, string[]>
+            {
+                ["title"] = [$"Заголовок задачи не может быть длиннее {TodoTask.TitleMaxLength} символов."]
+            });
+        }
+
+        return null;
     }
 
     private const string TimeWithoutDateMessage = "Время срока нельзя задать без даты.";
