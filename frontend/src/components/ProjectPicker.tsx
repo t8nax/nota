@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { ProjectResponse } from '../api'
 import { useDismiss } from '../useDismiss'
+import ProjectPopover, { NO_PROJECT } from './ProjectPopover'
 
 interface ProjectPickerProps {
   projects: readonly ProjectResponse[]
@@ -12,9 +13,6 @@ interface ProjectPickerProps {
   align?: 'left' | 'right'
   onPick: (projectId: string | null) => void
 }
-
-/** Так называется отсутствие проекта. Это только подпись: отдельного экрана нет. */
-const NO_PROJECT = 'Входящие'
 
 /** Выбор проекта чипом с попапом: тем же способом задаются срок и его время. */
 function ProjectPicker({ projects, value, label, disabled = false, align = 'left', onPick }: ProjectPickerProps) {
@@ -51,26 +49,7 @@ function ProjectPicker({ projects, value, label, disabled = false, align = 'left
       </button>
 
       {opened && (
-        <div className={popoverClass} role="dialog" aria-label={label}>
-          <button
-            type="button"
-            className={value === null ? 'project-option chosen' : 'project-option'}
-            onClick={() => pick(null)}
-          >
-            {NO_PROJECT}
-          </button>
-
-          {projects.map((project) => (
-            <button
-              key={project.id}
-              type="button"
-              className={project.id === value ? 'project-option chosen' : 'project-option'}
-              onClick={() => pick(project.id)}
-            >
-              {project.name}
-            </button>
-          ))}
-        </div>
+        <ProjectPopover projects={projects} value={value} label={label} className={popoverClass} onPick={pick} />
       )}
     </div>
   )

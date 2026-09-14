@@ -119,6 +119,57 @@ export async function setTaskProject(id: string, projectId: string | null): Prom
   return response.json()
 }
 
+/** Правка задачи в окне: всё, что в нём видно, уходит одним запросом и применяется разом. */
+export interface TaskEdit {
+  title: string
+  due: DueInput
+  projectId: string | null
+}
+
+export async function updateTask(id: string, edit: TaskEdit): Promise<TaskResponse> {
+  const response = await request(`/api/tasks/${id}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      title: edit.title,
+      dueDate: edit.due.date || null,
+      // Снятая дата снимает и время: API времени без дня не примет.
+      dueTime: (edit.due.date && edit.due.time) || null,
+      projectId: edit.projectId,
+    }),
+  })
+
+  if (!response.ok) {
+    throw new Error(await describeFailure(response, GENERIC_FAILURE))
+  }
+
+  return response.json()
+}
+
+/** День срока из календаря ленты: время не передаётся, и API снимет его вместе с днём. */
+export async function setTaskDueDate(id: string, dueDate: string): Promise<TaskResponse> {
+  const response = await request(`/api/tasks/${id}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ dueDate: dueDate || null }),
+  })
+
+  if (!response.ok) {
+    throw new Error(await describeFailure(response, GENERIC_FAILURE))
+  }
+
+  return response.json()
+}
+
+/** Удаление задачи: тело ответа пустое, возвращать нечего. */
+export async function deleteTask(id: string): Promise<void> {
+  const response = await request(`/api/tasks/${id}`, { method: 'DELETE' })
+
+  if (!response.ok) {
+    throw new Error(await describeFailure(response, GENERIC_FAILURE))
+  }
+}
+
 export async function fetchProjects(): Promise<ProjectResponse[]> {
   const response = await request('/api/projects')
 

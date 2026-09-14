@@ -3,18 +3,23 @@ import {
   createProject,
   createTask,
   deleteProject,
+  deleteTask,
   fetchProjects,
   fetchTasks,
   GENERIC_FAILURE,
   renameProject,
   setTaskDone,
+  setTaskDueDate,
   setTaskProject,
+  updateTask,
   type DueInput,
   type ProjectResponse,
+  type TaskEdit,
   type TaskResponse,
 } from './api'
 import NewTaskForm from './components/NewTaskForm'
 import Sidebar from './components/Sidebar'
+import TaskEditModal from './components/TaskEditModal'
 import TaskStream from './components/TaskStream'
 import Toasts, { type ToastData } from './components/Toasts'
 import { dateKey, formatTodaySubtitle } from './dates'
@@ -40,6 +45,12 @@ function App() {
   const [toasts, setToasts] = useState<readonly ToastData[]>([])
   const [projects, setProjects] = useState<readonly ProjectResponse[]>([])
   const [view, setView] = useState<View>({ kind: 'all' })
+  // Окно правки одно на экран: открытая в нём задача либо null.
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [saving, setSaving] = useState(false)
+  // Удалённые задачи, чей запрос удаления ещё не ушёл: пока живёт попап с «Вернуть»,
+  // задача только спрятана и возвращается на своё место без обращения к серверу.
+  const [deleting, setDeleting] = useState<ReadonlySet<string>>(new Set())
   const lastToastId = useRef(0)
   // Список приходит от сервера целиком, и ответ запроса, ушедшего раньше, может
   // вернуться позже: применить его значило бы показать ленту такой, какой она была
@@ -113,8 +124,16 @@ function App() {
       setSubmitting(false)
     }
 
-    // Место новой задачи в ленте задаёт срок, а порядок считает сервер, поэтому
-    // список перечитывается целиком, а не достраивается на клиенте.
+    await reloadList()
+
+    return true
+  }
+
+  /**
+   * Место задачи в ленте задаёт срок, а порядок считает сервер, поэтому после
+   * создания и смены срока список перечитывается целиком, а не достраивается на клиенте.
+   */
+  async function reloadList() {
     const isFresh = startListRequest()
 
     try {
@@ -124,8 +143,28 @@ function App() {
     } catch (error: unknown) {
       if (isFresh()) showError(error)
     }
+  }
 
-    return true
+  function replaceTask(updated: TaskResponse) {
+    setList((current) =>
+      current.status === 'ready'
+        ? { status: 'ready', tasks: current.tasks.map((t) => (t.id === updated.id ? updated : t)) }
+        : current,
+    )
+  }
+
+  function markPending(id: string, isPending: boolean) {
+    setPending((current) => {
+      const next = new Set(current)
+
+      if (isPending) {
+        next.add(id)
+      } else {
+        next.delete(id)
+      }
+
+      return next
+    })
   }
 
   async function handleCreateProject(name: string): Promise<boolean> {
@@ -217,6 +256,96 @@ function App() {
     }
   }
 
+  async function handleSave(task: TaskResponse, edit: TaskEdit) {
+    if (saving) return
+
+    setSaving(true)
+    markPending(task.id, true)
+
+    try {
+      replaceTask(await updateTask(task.id, edit))
+    } catch (error: unknown) {
+      // Окно остаётся открытым: введённое в нём не должно пропасть из-за отказа.
+      showError(error)
+
+      return
+    } finally {
+      setSaving(false)
+      markPending(task.id, false)
+    }
+
+    setEditingId(null)
+    await reloadList()
+  }
+
+  async function handleDueDateChange(task: TaskResponse, dueDate: string) {
+    if ((task.dueDate ?? '') === dueDate || pending.has(task.id)) return
+
+    markPending(task.id, true)
+
+    try {
+      replaceTask(await setTaskDueDate(task.id, dueDate))
+    } catch (error: unknown) {
+      showError(error)
+
+      return
+    } finally {
+      markPending(task.id, false)
+    }
+
+    await reloadList()
+  }
+
+  function markDeleting(id: string, isDeleting: boolean) {
+    setDeleting((current) => {
+      const next = new Set(current)
+
+      if (isDeleting) {
+        next.add(id)
+      } else {
+        next.delete(id)
+      }
+
+      return next
+    })
+  }
+
+  /**
+   * Удаление без подтверждения: задача сразу прячется, а запрос уходит, только когда
+   * попап с «Вернуть» ушёл сам или закрыт крестиком. Так возврат восстанавливает
+   * задачу целиком — с её идентификатором и местом в ленте, — ничего не заводя заново.
+   */
+  function handleDelete(task: TaskResponse) {
+    setEditingId(null)
+    markDeleting(task.id, true)
+
+    showToast({
+      message: `Удалено: «${task.title}»`,
+      tone: 'deleted',
+      action: { label: 'Вернуть', perform: () => markDeleting(task.id, false) },
+      onExpire: () => void commitDelete(task.id),
+    })
+  }
+
+  async function commitDelete(id: string) {
+    try {
+      await deleteTask(id)
+    } catch (error: unknown) {
+      // Удаление не состоялось, и задача возвращается в ленту.
+      showError(error)
+      markDeleting(id, false)
+
+      return
+    }
+
+    setList((current) =>
+      current.status === 'ready'
+        ? { status: 'ready', tasks: current.tasks.filter((task) => task.id !== id) }
+        : current,
+    )
+    markDeleting(id, false)
+  }
+
   function handleToggle(task: TaskResponse) {
     void applyDone(task, !task.isDone)
   }
@@ -251,7 +380,14 @@ function App() {
 
   // Экран решает, какие задачи видны; счётчик и пустое состояние считают по ним же.
   // Выполненных среди видимых не бывает, поэтому счётчик — это их число.
-  const visible = filterForView(list.status === 'ready' ? list.tasks : [], view)
+  const visible = filterForView(
+    list.status === 'ready' ? list.tasks.filter((task) => !deleting.has(task.id)) : [],
+    view,
+  )
+  const editing =
+    list.status === 'ready' && editingId !== null
+      ? list.tasks.find((task) => task.id === editingId)
+      : undefined
   const countLine =
     visible.length === 0
       ? null
@@ -316,13 +452,29 @@ function App() {
             <TaskStream
               tasks={visible}
               pending={pending}
+              editingId={editing?.id ?? null}
               projects={projects}
               onToggle={handleToggle}
               onMove={handleMove}
+              onEdit={(task) => setEditingId(task.id)}
+              onDueDateChange={(task, dueDate) => void handleDueDateChange(task, dueDate)}
             />
           )}
         </div>
       </main>
+
+      {/* Ключ заводит черновик заново, если окно открыто уже над другой задачей. */}
+      {editing && (
+        <TaskEditModal
+          key={editing.id}
+          task={editing}
+          projects={projects}
+          saving={saving}
+          onSave={(edit) => void handleSave(editing, edit)}
+          onDelete={() => handleDelete(editing)}
+          onClose={() => setEditingId(null)}
+        />
+      )}
 
       <Toasts toasts={toasts} onDismiss={dismissToast} />
     </div>

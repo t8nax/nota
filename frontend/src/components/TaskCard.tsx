@@ -1,5 +1,8 @@
+import { useState } from 'react'
 import type { ProjectResponse, TaskResponse } from '../api'
 import { dateKey, formatShortDay, formatTime } from '../dates'
+import { useDismiss } from '../useDismiss'
+import DatePopover from './DatePopover'
 import ProjectPicker from './ProjectPicker'
 
 interface TaskCardProps {
@@ -7,9 +10,13 @@ interface TaskCardProps {
   /** Задача из просроченной группы: срок подсвечен. */
   overdue: boolean
   pending: boolean
+  /** Задача открыта в окне правки: полоска слева горит, как при наведении. */
+  editing: boolean
   projects: readonly ProjectResponse[]
   onToggle: (task: TaskResponse) => void
   onMove: (task: TaskResponse, projectId: string | null) => void
+  onEdit: (task: TaskResponse) => void
+  onDueDateChange: (task: TaskResponse, dueDate: string) => void
 }
 
 /** Срок над заголовком. У сегодняшней задачи день и так понятен, остаётся время;
@@ -26,30 +33,61 @@ function dueLabel(task: TaskResponse, today: string): string | null {
 }
 
 /** Задача в ленте: карточка со сроком, отметкой и заголовком, справа от неё чип проекта. */
-function TaskCard({ task, overdue, pending, projects, onToggle, onMove }: TaskCardProps) {
+function TaskCard({ task, overdue, pending, editing, projects, onToggle, onMove, onEdit, onDueDateChange }: TaskCardProps) {
+  const [calendarOpened, setCalendarOpened] = useState(false)
+  const dueSlot = useDismiss<HTMLDivElement>(calendarOpened, () => setCalendarOpened(false))
+
+  if (pending && calendarOpened) setCalendarOpened(false)
+
   const due = dueLabel(task, dateKey(new Date()))
+  // Без подписи кнопка срока проявляется только при наведении. У сегодняшней задачи
+  // без времени подписи нет, но срок есть, и кнопка называет его словом.
+  const quietLabel = task.dueDate === null ? 'Срок' : 'Сегодня'
+
+  const dueClasses = ['task-due', overdue ? 'overdue' : '', due === null ? 'quiet' : '']
 
   return (
     <div className="task-item">
-      <div className="task-card">
-        {/* Без подписи строки срока нет вовсе: пустая, она держала бы 25px над заголовком. */}
-        {due && (
-          <div className="task-meta">
-            <span className={overdue ? 'task-due overdue' : 'task-due'}>{due}</span>
-          </div>
-        )}
+      <div className={editing ? 'task-card editing' : 'task-card'}>
+        {/* Строка срока есть всегда: кнопка «Срок» появляется при наведении, и лента не дёргается. */}
+        <div className="task-meta">
+          <div className="due-slot" ref={dueSlot}>
+            <button
+              type="button"
+              className={dueClasses.join(' ').trim()}
+              aria-expanded={calendarOpened}
+              disabled={pending}
+              onClick={() => setCalendarOpened((current) => !current)}
+            >
+              {due ?? quietLabel}
+            </button>
 
-        {/* Заголовок внутри label: он же служит доступным именем для отметки. */}
-        <label className="task-content">
+            {calendarOpened && (
+              <DatePopover
+                value={task.dueDate ?? ''}
+                onPick={(date) => {
+                  setCalendarOpened(false)
+                  onDueDateChange(task, date)
+                }}
+              />
+            )}
+          </div>
+        </div>
+
+        <div className="task-content">
+          {/* Отметка названа заголовком: клик по самому заголовку открывает правку. */}
           <input
             type="checkbox"
             className="checkbox"
+            aria-label={task.title}
             checked={task.isDone}
             disabled={pending}
             onChange={() => onToggle(task)}
           />
-          <span className="task-text">{task.title}</span>
-        </label>
+          <button type="button" className="task-text" onClick={() => onEdit(task)}>
+            {task.title}
+          </button>
+        </div>
       </div>
 
       {/* Пока проектов нет, переносить задачу некуда, и чипа нет. */}

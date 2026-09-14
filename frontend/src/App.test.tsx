@@ -488,14 +488,15 @@ describe('лента задач', () => {
     expect(await screen.findByText('10 сентября, 08:00')).toBeInTheDocument()
   })
 
-  it('у задачи без срока не показывает ни даты, ни времени', async () => {
+  it('у задачи без срока вместо подписи держит скрытую кнопку «Срок»', async () => {
     stubFetch([jsonResponse([taskJson('Когда-нибудь')])])
 
     render(<App />)
 
     await screen.findByText('Когда-нибудь')
     expect(screen.queryByText('Без срока')).toBeInTheDocument()
-    expect(document.querySelector('.task-due')).toBeNull()
+    // Кнопка проявляется только при наведении; видимость проверяет браузерный прогон.
+    expect(screen.getByRole('button', { name: 'Срок' })).toHaveClass('task-due', 'quiet')
   })
 
   it('считает в шапке только видимые задачи', async () => {
@@ -1158,5 +1159,367 @@ describe('проект задачи', () => {
 
     await screen.findByText('Полить цветы')
     expect(screen.queryByLabelText('Проект задачи «Полить цветы»')).toBeNull()
+  })
+})
+
+describe('окно правки задачи', () => {
+  function dialog() {
+    return screen.getByRole('dialog', { name: 'Правка задачи' })
+  }
+
+  /** Поле-выбор окна: доступное имя — подпись поля и его значение. */
+  function field(label: string) {
+    return within(dialog()).getByRole('button', { name: new RegExp(`^${label} `) })
+  }
+
+  async function openEditor(title: string) {
+    await userEvent.click(await screen.findByRole('button', { name: title }))
+
+    return dialog()
+  }
+
+  it('открывается кликом по заголовку, а отметка выполняет задачу без окна', async () => {
+    const first = taskJson('Купить хлеб')
+    const second = taskJson('Позвонить врачу')
+    stubFetch([jsonResponse([first, second]), jsonResponse({ ...second, isDone: true })])
+
+    render(<App />)
+
+    await userEvent.click(await screen.findByRole('checkbox', { name: 'Позвонить врачу' }))
+    await waitFor(() => expect(screen.queryByText('Позвонить врачу')).toBeNull())
+    expect(screen.queryByRole('dialog', { name: 'Правка задачи' })).toBeNull()
+
+    await openEditor('Купить хлеб')
+
+    expect(within(dialog()).getByLabelText('Заголовок')).toHaveValue('Купить хлеб')
+    expect(document.querySelector('.task-card.editing')).toHaveTextContent('Купить хлеб')
+  })
+
+  it('показывает четыре поля с умолчаниями и не даёт задать время без даты', async () => {
+    stubFetch([jsonResponse([taskJson('Купить хлеб')])], [projectJson('Дом')])
+
+    render(<App />)
+    await openEditor('Купить хлеб')
+
+    expect(field('Проект')).toHaveTextContent('Входящие')
+    expect(field('Дата')).toHaveTextContent('Без срока')
+    expect(field('Время')).toHaveTextContent('Не задано')
+    expect(field('Время')).toBeDisabled()
+    expect(within(dialog()).queryByText('Описание')).toBeNull()
+    expect(dialog().querySelector('.project-dot')).toBeNull()
+  })
+
+  it('пишет сегодня и завтра словом', async () => {
+    stubFetch([jsonResponse([taskJson('Первая', false, TODAY), taskJson('Вторая', false, '2026-09-13', '09:30:00')])])
+
+    render(<App />)
+
+    await openEditor('Первая')
+    expect(field('Дата')).toHaveTextContent('Сегодня')
+    await userEvent.click(within(dialog()).getByRole('button', { name: 'Закрыть окно' }))
+
+    await openEditor('Вторая')
+    expect(field('Дата')).toHaveTextContent('Завтра')
+    expect(field('Время')).toHaveTextContent('09:30')
+  })
+
+  it('сохраняет все поля одним запросом, закрывается и перечитывает ленту', async () => {
+    const home = projectJson('Дом')
+    const task = taskJson('Купить хлеб')
+    const saved = { ...task, title: 'Купить молоко', dueDate: '2026-09-13', dueTime: '18:00:00', projectId: home.id }
+    stubFetch([jsonResponse([task]), jsonResponse(saved), jsonResponse([saved])], [home])
+
+    render(<App />)
+    await openEditor('Купить хлеб')
+
+    const title = within(dialog()).getByLabelText('Заголовок')
+    await userEvent.clear(title)
+    await userEvent.type(title, 'Купить молоко')
+
+    await userEvent.click(field('Проект'))
+    await userEvent.click(within(screen.getByRole('dialog', { name: 'Выбор проекта' })).getByRole('button', { name: 'Дом' }))
+    await userEvent.click(field('Дата'))
+    await userEvent.click(within(dialog()).getByRole('button', { name: 'Завтра' }))
+    await userEvent.click(field('Время'))
+    await userEvent.click(within(dialog()).getByRole('button', { name: '18:00' }))
+
+    // До «Сохранить» ничего не уходит.
+    expect(callsWith('PATCH')).toHaveLength(0)
+
+    await userEvent.click(within(dialog()).getByRole('button', { name: 'Сохранить' }))
+
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Правка задачи' })).toBeNull())
+
+    const [patchCall] = callsWith('PATCH')
+    expect(patchCall[0]).toBe(`/api/tasks/${task.id}`)
+    expect(patchCall[1]).toMatchObject({
+      body: JSON.stringify({ title: 'Купить молоко', dueDate: '2026-09-13', dueTime: '18:00', projectId: home.id }),
+    })
+
+    // Задача переезжает в свою группу по порядку сервера.
+    expect(await screen.findByRole('heading', { name: 'Завтра' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Купить молоко' })).toBeInTheDocument()
+    expect(taskListRequests()).toBe(2)
+  })
+
+  it('сохраняет по Enter в поле заголовка', async () => {
+    const task = taskJson('Купить хлеб')
+    const saved = { ...task, title: 'Купить батон' }
+    stubFetch([jsonResponse([task]), jsonResponse(saved), jsonResponse([saved])])
+
+    render(<App />)
+    await openEditor('Купить хлеб')
+
+    const title = within(dialog()).getByLabelText('Заголовок')
+    await userEvent.clear(title)
+    await userEvent.type(title, 'Купить батон{Enter}')
+
+    expect(await screen.findByRole('button', { name: 'Купить батон' })).toBeInTheDocument()
+    expect(callsWith('PATCH')).toHaveLength(1)
+  })
+
+  it('со снятой датой сбрасывает и время', async () => {
+    const task = taskJson('Встреча', false, '2026-09-20', '09:00:00')
+    const saved = { ...task, dueDate: null, dueTime: null }
+    stubFetch([jsonResponse([task]), jsonResponse(saved), jsonResponse([saved])])
+
+    render(<App />)
+    await openEditor('Встреча')
+
+    await userEvent.click(field('Дата'))
+    await userEvent.click(within(dialog()).getByRole('button', { name: 'Убрать' }))
+
+    expect(field('Время')).toBeDisabled()
+    expect(field('Время')).toHaveTextContent('Не задано')
+
+    await userEvent.click(within(dialog()).getByRole('button', { name: 'Сохранить' }))
+
+    await waitFor(() => expect(callsWith('PATCH')).toHaveLength(1))
+    expect(callsWith('PATCH')[0][1]).toMatchObject({
+      body: JSON.stringify({ title: 'Встреча', dueDate: null, dueTime: null, projectId: null }),
+    })
+  })
+
+  it('с пустым заголовком «Сохранить» неактивна', async () => {
+    stubFetch([jsonResponse([taskJson('Купить хлеб')])])
+
+    render(<App />)
+    await openEditor('Купить хлеб')
+
+    await userEvent.clear(within(dialog()).getByLabelText('Заголовок'))
+
+    expect(within(dialog()).getByRole('button', { name: 'Сохранить' })).toBeDisabled()
+  })
+
+  it('крестик, Escape и клик по затемнению закрывают окно, не меняя задачу', async () => {
+    stubFetch([jsonResponse([taskJson('Купить хлеб')])])
+
+    render(<App />)
+
+    const closers = [
+      () => userEvent.click(within(dialog()).getByRole('button', { name: 'Закрыть окно' })),
+      () => userEvent.keyboard('{Escape}'),
+      () => userEvent.click(document.querySelector('.modal-overlay')!),
+    ]
+
+    for (const close of closers) {
+      await openEditor('Купить хлеб')
+      await userEvent.type(within(dialog()).getByLabelText('Заголовок'), ' и молоко')
+      await close()
+
+      expect(screen.queryByRole('dialog', { name: 'Правка задачи' })).toBeNull()
+    }
+
+    expect(callsWith('PATCH')).toHaveLength(0)
+    await openEditor('Купить хлеб')
+    expect(within(dialog()).getByLabelText('Заголовок')).toHaveValue('Купить хлеб')
+  })
+
+  it('Escape и клик по окну при открытом попапе закрывают только попап', async () => {
+    stubFetch([jsonResponse([taskJson('Купить хлеб')])])
+
+    render(<App />)
+    await openEditor('Купить хлеб')
+
+    await userEvent.click(field('Дата'))
+    expect(screen.getByRole('dialog', { name: 'Выбор даты срока' })).toBeInTheDocument()
+    expect(field('Дата')).toHaveClass('open')
+
+    await userEvent.keyboard('{Escape}')
+
+    expect(screen.queryByRole('dialog', { name: 'Выбор даты срока' })).toBeNull()
+    expect(dialog()).toBeInTheDocument()
+    expect(field('Дата')).not.toHaveClass('open')
+
+    await userEvent.click(field('Дата'))
+    await userEvent.click(within(dialog()).getByRole('heading', { name: 'Правка задачи' }))
+
+    expect(screen.queryByRole('dialog', { name: 'Выбор даты срока' })).toBeNull()
+    expect(dialog()).toBeInTheDocument()
+  })
+
+  it('выбор даты гасит рамку поля, и выделено не больше одного поля', async () => {
+    stubFetch([jsonResponse([taskJson('Купить хлеб')])], [projectJson('Дом')])
+
+    render(<App />)
+    await openEditor('Купить хлеб')
+
+    await userEvent.click(field('Проект'))
+    await userEvent.click(field('Дата'))
+
+    expect(field('Проект')).not.toHaveClass('open')
+    expect(field('Дата')).toHaveClass('open')
+
+    await userEvent.click(within(dialog()).getByRole('button', { name: 'Сегодня' }))
+
+    expect(dialog().querySelectorAll('.edit-picker.open')).toHaveLength(0)
+    expect(field('Дата')).toHaveTextContent('Сегодня')
+  })
+
+  it('открытие окна закрывает попап формы новой задачи', async () => {
+    stubFetch([jsonResponse([taskJson('Купить хлеб')])])
+
+    render(<App />)
+    await screen.findByText('Купить хлеб')
+
+    await userEvent.click(screen.getByLabelText('Дата срока'))
+    expect(screen.getByRole('dialog', { name: 'Выбор даты срока' })).toBeInTheDocument()
+
+    await openEditor('Купить хлеб')
+
+    expect(screen.queryByRole('dialog', { name: 'Выбор даты срока' })).toBeNull()
+  })
+
+  it('отказ сохранения оставляет окно с введённым и показывает попап', async () => {
+    const task = taskJson('Купить хлеб')
+    stubFetch([jsonResponse([task]), jsonResponse({ title: 'Not Found' }, 404)])
+
+    render(<App />)
+    await openEditor('Купить хлеб')
+
+    await userEvent.type(within(dialog()).getByLabelText('Заголовок'), ' и молоко')
+    await userEvent.click(within(dialog()).getByRole('button', { name: 'Сохранить' }))
+
+    expect(await screen.findByText('Произошла ошибка. Попробуйте позже.')).toBeInTheDocument()
+    expect(within(dialog()).getByLabelText('Заголовок')).toHaveValue('Купить хлеб и молоко')
+  })
+})
+
+describe('срок в ленте', () => {
+  it('клик по подписи срока открывает календарь и применяет день сразу, без окна', async () => {
+    const task = taskJson('Встреча', false, '2026-09-20', '09:00:00')
+    const moved = { ...task, dueDate: '2026-09-13' }
+    stubFetch([jsonResponse([task]), jsonResponse(moved), jsonResponse([moved])])
+
+    render(<App />)
+
+    await userEvent.click(await screen.findByRole('button', { name: '20 сентября, 09:00' }))
+
+    expect(screen.queryByRole('dialog', { name: 'Правка задачи' })).toBeNull()
+
+    const calendar = screen.getByRole('dialog', { name: 'Выбор даты срока' })
+    await userEvent.click(within(calendar).getByRole('button', { name: 'Завтра' }))
+
+    expect(screen.queryByRole('dialog', { name: 'Выбор даты срока' })).toBeNull()
+    expect(callsWith('PATCH')[0][1]).toMatchObject({ body: JSON.stringify({ dueDate: '2026-09-13' }) })
+    expect(await screen.findByRole('heading', { name: 'Завтра' })).toBeInTheDocument()
+  })
+
+  it('у задачи без срока кнопка «Срок» ставит день', async () => {
+    const task = taskJson('Когда-нибудь')
+    const moved = { ...task, dueDate: TODAY }
+    stubFetch([jsonResponse([task]), jsonResponse(moved), jsonResponse([moved])])
+
+    render(<App />)
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Срок' }))
+    await userEvent.click(
+      within(screen.getByRole('dialog', { name: 'Выбор даты срока' })).getByRole('button', { name: 'Сегодня' }),
+    )
+
+    expect(callsWith('PATCH')[0][1]).toMatchObject({ body: JSON.stringify({ dueDate: TODAY }) })
+    expect(await screen.findByRole('heading', { name: 'Сегодня' })).toBeInTheDocument()
+  })
+
+  it('открытие окна закрывает календарь ленты', async () => {
+    stubFetch([jsonResponse([taskJson('Когда-нибудь')])])
+
+    render(<App />)
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Срок' }))
+    expect(screen.getByRole('dialog', { name: 'Выбор даты срока' })).toBeInTheDocument()
+
+    await userEvent.click(screen.getByRole('button', { name: 'Когда-нибудь' }))
+
+    expect(screen.queryByRole('dialog', { name: 'Выбор даты срока' })).toBeNull()
+    expect(screen.getByRole('dialog', { name: 'Правка задачи' })).toBeInTheDocument()
+  })
+})
+
+describe('удаление задачи', () => {
+  async function deleteFromEditor(title: string) {
+    await userEvent.click(await screen.findByRole('button', { name: title }))
+    await userEvent.click(screen.getByRole('button', { name: 'Удалить задачу' }))
+  }
+
+  it('прячет задачу, закрывает окно и удаляет на сервере, когда попап ушёл', async () => {
+    const task = taskJson('Купить хлеб')
+    stubFetch([jsonResponse([task, taskJson('Позвонить врачу')]), new Response(null, { status: 204 })])
+
+    render(<App />)
+    await deleteFromEditor('Купить хлеб')
+
+    expect(screen.queryByRole('dialog', { name: 'Правка задачи' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Купить хлеб' })).toBeNull()
+    expect(screen.getByText('Осталось 1 задача')).toBeInTheDocument()
+
+    const message = screen.getByText('Удалено: «Купить хлеб»')
+    expect(message.closest('.toast')).toHaveClass('deleted')
+    expect(callsWith('DELETE')).toHaveLength(0)
+
+    act(() => {
+      vi.advanceTimersByTime(TOAST_LIFETIME_MS)
+    })
+
+    await waitFor(() => expect(callsWith('DELETE')).toHaveLength(1))
+    expect(callsWith('DELETE')[0][0]).toBe(`/api/tasks/${task.id}`)
+    expect(screen.queryByText('Удалено: «Купить хлеб»')).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Купить хлеб' })).toBeNull()
+  })
+
+  it('«Вернуть» возвращает задачу со сроком и проектом на прежнее место', async () => {
+    const home = projectJson('Дом')
+    const first = taskJson('Встреча', false, TODAY, '09:00:00', home.id)
+    const second = taskJson('Созвон', false, TODAY, '10:00:00')
+    stubFetch([jsonResponse([first, second])], [home])
+
+    render(<App />)
+    await deleteFromEditor('Встреча')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Вернуть' }))
+
+    act(() => {
+      vi.advanceTimersByTime(TOAST_LIFETIME_MS)
+    })
+
+    expect(Array.from(document.querySelectorAll('.task-text'), (node) => node.textContent)).toEqual([
+      'Встреча',
+      'Созвон',
+    ])
+    expect(screen.getByText('09:00')).toBeInTheDocument()
+    expect(screen.getByLabelText('Проект задачи «Встреча»')).toHaveTextContent('Дом')
+    expect(callsWith('DELETE')).toHaveLength(0)
+  })
+
+  it('отказ удаления возвращает задачу и показывает ошибку', async () => {
+    stubFetch([jsonResponse([taskJson('Купить хлеб')]), jsonResponse({ title: 'Not Found' }, 404)])
+
+    render(<App />)
+    await deleteFromEditor('Купить хлеб')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Закрыть сообщение' }))
+
+    expect(await screen.findByText('Произошла ошибка. Попробуйте позже.')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Купить хлеб' })).toBeInTheDocument()
   })
 })

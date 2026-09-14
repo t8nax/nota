@@ -13,9 +13,11 @@ export interface ToastData {
   /** Свой у каждого показа: один и тот же текст может прийти дважды подряд. */
   id: number
   message: string
-  /** Отказ действия или сообщение об удачном: от этого зависят знак и цвет попапа. */
-  tone: 'error' | 'done'
+  /** Отказ действия, выполнение или удаление: от этого зависят знак и цвет попапа. */
+  tone: 'error' | 'done' | 'deleted'
   action?: ToastAction
+  /** Попап ушёл без нажатия на действие — истёк или закрыт крестиком. */
+  onExpire?: () => void
 }
 
 interface ToastsProps {
@@ -31,13 +33,16 @@ interface ToastProps {
 /** Один попап: живёт отведённое время и снимает себя сам. */
 function Toast({ toast, onDismiss }: ToastProps) {
   useEffect(() => {
-    const timer = window.setTimeout(() => onDismiss(toast.id), TOAST_LIFETIME_MS)
+    const timer = window.setTimeout(() => {
+      toast.onExpire?.()
+      onDismiss(toast.id)
+    }, TOAST_LIFETIME_MS)
 
     return () => window.clearTimeout(timer)
-  }, [toast.id, onDismiss])
+  }, [toast, onDismiss])
 
   return (
-    <div className={toast.tone === 'done' ? 'toast done' : 'toast'}>
+    <div className={`toast ${toast.tone}`}>
       {/* Остаток времени показывает полоска, а не число: она читается боковым зрением
           и не требует перерисовки на каждый тик. */}
       <span
@@ -51,6 +56,14 @@ function Toast({ toast, onDismiss }: ToastProps) {
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
             <circle cx="12" cy="12" r="9" />
             <polyline points="8,12.5 11,15.5 16,9.5" />
+          </svg>
+        ) : toast.tone === 'deleted' ? (
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+            <polyline points="3 6 5 6 21 6" />
+            <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+            <path d="M10 11v6" />
+            <path d="M14 11v6" />
+            <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
           </svg>
         ) : (
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
@@ -81,7 +94,10 @@ function Toast({ toast, onDismiss }: ToastProps) {
         type="button"
         className="toast-close"
         aria-label="Закрыть сообщение"
-        onClick={() => onDismiss(toast.id)}
+        onClick={() => {
+          toast.onExpire?.()
+          onDismiss(toast.id)
+        }}
       >
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
           <line x1="6" y1="6" x2="18" y2="18" />
