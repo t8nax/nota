@@ -95,6 +95,28 @@ test('чип проекта у задачи без проекта виден т�
   await expect(slot).toHaveCSS('opacity', '1')
 })
 
+test('наведение на «…» подсвечивает строку проекта, а активную не меняет', async ({ page }) => {
+  await stubProjectList(page, projects)
+  await stubTaskList(page)
+  await page.goto('/')
+
+  const row = page.locator('.project-row', { hasText: short.name })
+  const item = row.locator('.nav-item')
+  const menuButton = page.getByLabel(`Действия проекта «${short.name}»`)
+
+  await expect(item).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)')
+
+  await menuButton.hover()
+
+  await expect(item).toHaveCSS('background-color', 'rgba(255, 255, 255, 0.05)')
+
+  // Открытый проект остаётся залитым белым: наведение не перебивает активный вид.
+  await item.click()
+  await menuButton.hover()
+
+  await expect(item).toHaveCSS('background-color', 'rgb(255, 255, 255)')
+})
+
 test('пункт заведения проекта стоит под списком', async ({ page }) => {
   await stubProjectList(page, projects)
   await stubTaskList(page)

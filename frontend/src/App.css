@@ -70,13 +70,17 @@
   transition: background-color 0.2s, color 0.2s;
 }
 
-.nav-item:hover {
+/* Ховер ловим по всей строке: у проекта в строку входит кнопка «…», и при
+   наведении только на неё пункт оставался неподсвеченным. */
+.nav-item:hover,
+.project-row:hover .nav-item {
   background: rgba(255, 255, 255, 0.05);
   color: var(--text-main);
 }
 
 .nav-item.active,
-.nav-item.active:hover {
+.nav-item.active:hover,
+.project-row:hover .nav-item.active {
   background-color: var(--accent-primary);
   color: #000000;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
