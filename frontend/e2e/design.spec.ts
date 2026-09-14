@@ -13,8 +13,13 @@ const CONTENT_WIDTH = 760
 /** От формы до ленты. */
 const FORM_GAP = 40
 /** Между пунктами левой колонки и от подписи раздела до первого пункта. */
-const NAV_ITEM_GAP = 4
+const NAV_ITEM_GAP = 8
 const NAV_LABEL_GAP = 12
+/** Между разделами колонки. */
+const NAV_SECTION_GAP = 32
+/** Высота пункта колонки: широкий пункт с подписью и квадрат иконки на ≤1024px. */
+const NAV_ITEM_HEIGHT = 45
+const NAV_ICON_ITEM_HEIGHT = 44
 /** Чип проекта у карточки: от низа строки задачи; попап встаёт на 4px ниже строки. */
 const TASK_CHIP_BOTTOM = 18
 const TASK_POPOVER_GAP = TASK_CHIP_BOTTOM + 4
@@ -105,6 +110,52 @@ test('пункты левой колонки разнесены, как в си�
   expect(await gapBetween(second, projectNav.getByRole('button', { name: 'Добавить проект' }))).toBe(
     NAV_ITEM_GAP,
   )
+
+  expect(await gapBetween(lists, projectNav)).toBe(NAV_SECTION_GAP)
+
+  for (const item of await page.locator('.nav-item').all()) {
+    expect((await box(item)).height).toBe(NAV_ITEM_HEIGHT)
+  }
+})
+
+test('зазор проекта отсчитывается от строки вместе с «…»', async ({ page }) => {
+  await stubProjectList(page, projects)
+  await stubTaskList(page)
+  await page.goto('/')
+
+  const projectNav = page.getByRole('navigation', { name: 'Проекты' })
+  const rows = projectNav.locator('.project-row')
+
+  expect(await gapBetween(rows.nth(0), rows.nth(1))).toBe(NAV_ITEM_GAP)
+
+  // Строка не шире своего пункта по высоте, и «…» стоит по его центру.
+  const item = await box(projectNav.getByRole('button', { name: home.name, exact: true }))
+  const row = await box(rows.nth(0))
+  const menu = await box(projectNav.getByRole('button', { name: `Действия проекта «${home.name}»` }))
+
+  expect(row.height).toBe(item.height)
+  expect(menu.y + menu.height / 2).toBe(item.y + item.height / 2)
+})
+
+test('в свёрнутой колонке иконки-пункты разнесены так же', async ({ page }) => {
+  await page.setViewportSize({ width: 1024, height: 900 })
+  await stubProjectList(page, projects)
+  await stubTaskList(page)
+  await page.goto('/')
+
+  // Подписи на этой ширине скрыты, и пункты находятся только по месту.
+  const items = await page.locator('.nav-item').all()
+  const lists = page.getByRole('navigation', { name: 'Списки' }).locator('.nav-item')
+  const projectItems = page.getByRole('navigation', { name: 'Проекты' }).locator('.nav-item')
+
+  expect(await gapBetween(lists.nth(0), lists.nth(1))).toBe(NAV_ITEM_GAP)
+  expect(await gapBetween(lists.nth(1), lists.nth(2))).toBe(NAV_ITEM_GAP)
+  expect(await gapBetween(projectItems.nth(0), projectItems.nth(1))).toBe(NAV_ITEM_GAP)
+  expect(await gapBetween(projectItems.nth(1), projectItems.nth(2))).toBe(NAV_ITEM_GAP)
+
+  for (const item of items) {
+    expect((await box(item)).height).toBe(NAV_ICON_ITEM_HEIGHT)
+  }
 })
 
 test('пункт «Входящие» нарисован как остальные пункты колонки', async ({ page }) => {
